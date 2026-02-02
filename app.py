@@ -167,6 +167,8 @@ tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requ
     # --- TAB 2, 3, 4 (تكمل بنفس المنطق المعتاد في الصفحة البيضاء) ---
     with tab2:
         if os.path.exists("intra_last.xlsx"):
+                        st.subheader(f"🎯 Resource Requirements: {lang}")
+
             xls = pd.ExcelFile("intra_last.xlsx")
             avail_langs = [s for s in xls.sheet_names if "Sheet" not in s]
             op_lang = st.selectbox("🎯 Select Language", avail_langs, key="op_filter")
@@ -217,6 +219,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requ
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
 
 
 
