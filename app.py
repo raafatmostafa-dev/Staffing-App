@@ -5,6 +5,24 @@ from datetime import date, datetime, time
 
 st.set_page_config(page_title="WFM Professional Suite", layout="wide")
 
+# --- CSS لتصغير الخط في الكابستي وتجميل المظهر ---
+st.markdown("""
+    <style>
+    /* تصغير خط المايتريكس في الكابستي */
+    [data-testid="stMetricValue"] {
+        font-size: 1.8rem !important;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 0.9rem !important;
+    }
+    .main-header {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #1E3A8A;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # --- دالة التلوين ---
 def color_net_staffing(val):
     try:
@@ -30,61 +48,44 @@ with tab1:
         main_file = st.file_uploader("Upload Data.xlsx", type=["xlsx"])
 
     if main_file:
-        df_all = pd.read_excel(main_file, sheet_name=0) # قراءة الشيت الأساسي
-        
-        # حسابات الوقت العامة
+        df_all = pd.read_excel(main_file, sheet_name=0)
         working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
         base_hrs_per_person = working_days * 8
 
-        st.title("🌍 Global Fleet Capacity Dashboard")
-        st.info(f"Analysis for {working_days} working days ({base_hrs_per_person} base hours/FTE)")
+        st.markdown('<p class="main-header">🌍 Global Fleet Capacity Analysis</p>', unsafe_allow_html=True)
 
-        # لوب (Loop) عشان نعرض كل لغة في كارت لوحدها تحت بعض
-        for index, row in df_all.iterrows():
+        for _, row in df_all.iterrows():
             lang_name = str(row.iloc[0])
             target_workload_hrs = float(row.iloc[1])
             actual_hc_count = float(row.iloc[2])
-            shrink_p = float(row.iloc[3]) / 100 if float(row.iloc[3]) > 1 else float(row.iloc[3])
+            shrink_val = float(row.iloc[3])
+            shrink_p = shrink_val / 100 if shrink_val > 1 else shrink_val
 
-            # الحسابات مع اعتبار الشرينكيدج في الاتنين
-            # 1. تحليل الساعات
+            # الحسابات مع اعتبار الشرينكيدج في الساعات والموظفين
             actual_available_hrs = (actual_hc_count * base_hrs_per_person) * (1 - shrink_p)
             hrs_variance = actual_available_hrs - target_workload_hrs
-            
-            # 2. تحليل الموظفين
             req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
             hc_variance = actual_hc_count - req_hc
 
-            # تصميم الكارت الاحترافي لكل لغة
             with st.expander(f"🚩 Language: {lang_name.upper()}", expanded=True):
-                # عرض الساعات
-                st.markdown(f"#### ⏱️ Hours Performance (Shrinkage: {shrink_p*100:.1f}%)")
-                h1, h2, h3 = st.columns(3)
-                h1.metric("Target Workload", f"{int(target_workload_hrs):,}h")
-                h2.metric("Actual Available", f"{int(actual_available_hrs):,}h")
-                h3.metric("Hours Variance", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
+                c1, c2, c3, c4, c5, c6 = st.columns(6)
+                c1.metric("Tgt Hrs", f"{int(target_workload_hrs)}h")
+                c2.metric("Act Hrs", f"{int(actual_available_hrs)}h")
+                c3.metric("Hrs Var", f"{int(hrs_variance)}h", delta=int(hrs_variance))
+                c4.metric("Req HC", f"{int(req_hc)}")
+                c5.metric("Act HC", f"{int(actual_hc_count)}")
+                c6.metric("HC Gap", f"{int(hc_variance)}", delta=int(hc_variance))
+        st.divider()
 
-                # عرض الموظفين
-                st.markdown(f"#### 👥 Headcount Requirements")
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Required FTEs", f"{int(req_hc)} HC")
-                c2.metric("Actual FTEs", f"{int(actual_hc_count)} HC")
-                c3.metric("Staffing Gap", f"{int(hc_variance)} HC", delta=int(hc_variance))
-            
-            st.markdown("---") # فاصل بين كل لغة والتانية
-
-# --- بقية التابات مرتبطة بفلتر اللغة في الانتراداي لضمان عدم ظهور None ---
+# --- TAB 2: Intraday (هنا فلتر اللغة اللي بيشغل الباقي) ---
 with tab2:
-    # سيتم وضع فلتر اللغة هنا للتحكم في الجداول التفصيلية
-    pass
     st.subheader("⏰ Interval Requirements")
     intra_file = st.file_uploader("Upload Required.xlsx", type=["xlsx"])
     if intra_file:
         xls = pd.ExcelFile(intra_file)
         avail_langs = [s for s in xls.sheet_names if "Sheet" not in s]
-        # فلتر اللغة الموحد للعمليات
-        op_lang = st.selectbox("🎯 Operational Language", avail_langs, key="op_filter")
-        st.session_state['active_lang'] = op_lang
+        op_lang = st.selectbox("🎯 Operational Language (App Master Filter)", avail_langs, key="op_filter")
+        st.session_state['active_lang'] = op_lang # حفظ اللغة للتابات التانية
         
         df_raw = pd.read_excel(intra_file, sheet_name=op_lang, header=None)
         if not df_raw.empty:
@@ -95,22 +96,48 @@ with tab2:
             st.session_state['df_intra'] = df_intra.set_index('Intervals').apply(pd.to_numeric, errors='coerce').fillna(0).round(0).astype(int)
             st.dataframe(st.session_state['df_intra'], use_container_width=True)
 
+# --- TAB 3: Scheduling (تصليح الربط) ---
 with tab3:
     sched_file = st.file_uploader("Upload Schedules.xlsx", type=["xlsx"])
     lang = st.session_state.get('active_lang')
     if sched_file and lang:
         st.subheader(f"🗓️ Coverage for {lang}")
-        # ... (كود حساب التغطية كما في النسخ السابقة لضمان الدقة)
-        # سيتم استخدام 'lang' المأخوذة من تابة الانترا داي أوتوماتيكياً
+        try:
+            df_s = pd.read_excel(sched_file, sheet_name=lang)
+            intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
+            df_s['Day'] = pd.to_datetime(df_s['Day'], errors='coerce')
+            target_dates = pd.date_range(start_date, end_date).strftime('%Y-%m-%d').tolist()
+            
+            cov_dict = {"Intervals": intervals}
+            for d_str in target_dates:
+                day_df = df_s[df_s['Day'].dt.strftime('%Y-%m-%d') == d_str]
+                counts = [0] * len(intervals)
+                for i, slot in enumerate(intervals):
+                    slot_t = datetime.strptime(slot, '%H:%M').time()
+                    for _, r in day_df.iterrows():
+                        try:
+                            st_v = str(r['Start Time']).strip().upper()
+                            if st_v in ['OFF', 'NAN', '-', '']: continue
+                            st_t, en_t = pd.to_datetime(st_v).time(), pd.to_datetime(str(r['End Time'])).time()
+                            if (st_t <= slot_t < en_t) if st_t < en_t else (slot_t >= st_t or slot_t < en_t): counts[i] += 1
+                        except: continue
+                cov_dict[d_str] = counts
+            st.session_state['df_cov'] = pd.DataFrame(cov_dict).set_index('Intervals').astype(int)
+            st.dataframe(st.session_state['df_cov'], use_container_width=True)
+        except Exception as e: st.error(f"Sheet '{lang}' not found in Schedules.")
 
+# --- TAB 4: Net Staffing (تصليح الضرب) ---
 with tab4:
+    lang = st.session_state.get('active_lang')
     if 'df_intra' in st.session_state and 'df_cov' in st.session_state:
-        st.subheader(f"⚖️ Net Staffing Analysis: {st.session_state.get('active_lang')}")
-        # المقارنة النهائية بدون None
+        st.subheader(f"⚖️ Analysis: {lang}")
         d_intra = st.session_state['df_intra']
+        # إعادة فهرسة لضمان مطابقة التوقيتات تماماً
         d_cov = st.session_state['df_cov'].reindex(d_intra.index).fillna(0).astype(int)
+        
         common_cols = [c for c in d_cov.columns if c in d_intra.columns]
         if common_cols:
             df_net = d_cov[common_cols] - d_intra[common_cols]
             st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
-
+    else:
+        st.warning("Please check Intraday and Scheduling tabs first.")
