@@ -6,104 +6,75 @@ from datetime import date
 st.set_page_config(page_title="Workforce Gap Analysis", layout="wide")
 
 st.title("📊 Workforce Gap Analysis Calculator")
-st.write("حساب الفرق بين الهيد كاونت المطلوب والحالي بناءً على معادلة الساعات والشرينكيدج")
 
-# --- 1. إعدادات المدخلات (الـ Sidebar) ---
-st.sidebar.header("⚙️ إعدادات الحساب (F3, F4, L4)")
+# --- 1. إعدادات الحساب ---
+st.sidebar.header("⚙️ إعدادات الحساب")
+start_date = st.sidebar.date_input("Start Date", date(2024, 1, 1))
+end_date = st.sidebar.date_input("End Date", date(2024, 1, 31))
 
-# اختيار التواريخ لحساب NETWORKDAYS (F3, F4)
-start_date = st.sidebar.date_input("Start Date (F3)", date(2024, 1, 1))
-end_date = st.sidebar.date_input("End Date (F4)", date(2024, 1, 31))
-
-# تحويل التواريخ لصيغة يفهمها بايثون لحساب أيام العمل
+# حساب أيام العمل الشهرية
 start_np = np.datetime64(start_date, 'D')
 end_np = np.datetime64(end_date, 'D') + np.timedelta64(1, 'D')
 working_days = np.busday_count(start_np, end_np)
 
-# نسبة الشرينكيدج (L4)
-shrinkage_pct = st.sidebar.slider("Shrinkage % (L4)", 0, 100, 20) / 100
+# نسبة الشرينكيدج
+shrinkage_pct = st.sidebar.slider("Shrinkage %", 0, 100, 20) / 100
 
-# المعادلة: NETWORKDAYS * 8
-total_monthly_hours_per_agent = working_days * 8
+# سعة الموظف الشهرية الصافية (معادلتك بالظبط)
+monthly_net_cap = (working_days * 8) * (1 - shrinkage_pct)
 
-# سعة الموظف الصافية بعد الشرينكيدج: (Hours * (1 - Shrinkage))
-net_capacity_per_agent = total_monthly_hours_per_agent * (1 - shrinkage_pct)
+# سعة الموظف الأسبوعية (عشان لو الداتا بالأسابيع)
+weekly_net_cap = monthly_net_cap / 4
 
-st.sidebar.divider()
-st.sidebar.write(f"📅 Working Days: **{working_days}**")
-st.sidebar.write(f"⏳ Net Capacity/Agent: **{round(net_capacity_per_agent, 2)}** hrs")
+st.sidebar.info(f"سعة الموظف في الشهر: {round(monthly_net_cap, 1)} ساعة")
+st.sidebar.info(f"سعة الموظف في الأسبوع: {round(weekly_net_cap, 1)} ساعة")
 
-# --- 2. رفع الملف ومعالجته ---
-uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "csv"])
+uploaded_file = st.file_uploader("Upload File", type=["xlsx", "csv"])
 
 if uploaded_file:
     try:
-        # قراءة الملف (سواء إكسيل أو CSV)
         if uploaded_file.name.endswith('.xlsx'):
             df = pd.read_excel(uploaded_file)
         else:
             df = pd.read_csv(uploaded_file, encoding='cp1256')
         
-        # تنظيف أسامي الأعمدة
         df.columns = [str(c).strip().lower() for c in df.columns]
         
-        # البحث عن أعمدة اللغة والساعات
         col_lang = next((c for c in df.columns if 'lang' in c or 'لغة' in c), None)
         col_hours = next((c for c in df.columns if 'hour' in c or 'ساع' in c), None)
 
         if col_lang and col_hours:
-            # تجميع الساعات المطلوبة لكل لغة
-            summary = df.groupby(col_lang)[col_hours].sum().reset_index()
-            summary.columns = ['Language', 'Target Hours']
+            # التعديل الجوهري: بناخد "المتوسط الأسبوعي" للساعات مش المجموع الكلي
+            summary = df.groupby(col_lang)[col_hours].mean().reset_index()
+            summary.columns = ['Language', 'Avg Weekly Hours']
 
-            # حساب الهيد كاونت المطلوب (Target Hours / Net Capacity)
-            summary['Required HC'] = (summary['Target Hours'] / net_capacity_per_agent).replace([np.inf, -np.inf], 0).apply(np.ceil)
+            # المطلوب = متوسط ساعات الأسبوع / سعة الموظف الأسبوعية
+            summary['Required HC'] = (summary['Avg Weekly Hours'] / weekly_net_cap).apply(np.ceil)
 
-            st.subheader("📝 Analysis Result per Language")
+            st.subheader("📝 التحليل بناءً على متوسط الساعات الأسبوعية")
             
             final_results = []
             for _, row in summary.iterrows():
-                lang = row['Language']
-                target_hrs = row['Target Hours']
-                req_hc = row['Required HC']
-                
-                with st.expander(f"Analysis for: {lang}"):
-                    c1, c2, c3 = st.columns(3)
+                with st.expander(f"اللغة: {row['Language']}"):
+                    c1, c2 = st.columns(2)
+                    actual_hc = c1.number_input(f"Actual HC ({row['Language']})", value=0, key=f"hc_{row['Language']}")
                     
-                    # إدخال الهيد كاونت الفعلي
-                    actual_hc = c1.number_input(f"Actual HC ({lang})", value=0, key=f"hc_{lang}")
+                    # الحسبة اللي إنت طلبتها: (الفعلي * السعة) - (المطلوب * السعة)
+                    actual_hours = actual_hc * weekly_net_cap
+                    target_hours = row['Avg Weekly Hours']
+                    variance_hours = actual_hours - target_hours
                     
-                    # حساب الفارق في الهيد كاونت (معادلتك: Actual HC - Required HC)
-                    # مع العلم إن الـ Required HC محسوب فيه الشرينكيدج أصلاً
-                    hc_variance = actual_hc - req_hc
-                    
-                    # حساب الساعات المتاحة فعلياً بناءً على العدد الحالي
-                    actual_available_hours = actual_hc * net_capacity_per_agent
-                    
-                    c2.metric("Target Hours", f"{round(target_hrs)} hr")
-                    c3.metric("Available Hours", f"{round(actual_available_hours)} hr")
-                    
-                    if hc_variance < 0:
-                        st.error(f"⚠️ Shortage: You are short of {abs(int(hc_variance))} agents.")
-                    elif hc_variance > 0:
-                        st.success(f"✅ Surplus: You have {int(hc_variance)} extra agents.")
-                    else:
-                        st.info("👌 Properly Staffed.")
+                    c2.metric("Target Hours (Wk)", f"{round(target_hours)} hr")
+                    st.metric("Variance (Hours)", f"{round(variance_hours, 1)} hr", delta=round(variance_hours, 1))
                     
                     final_results.append({
-                        "Language": lang,
-                        "Target Hours": target_hrs,
-                        "Required HC": req_hc,
+                        "Language": row['Language'],
+                        "Avg Weekly Target": round(target_hours),
+                        "Required HC": row['Required HC'],
                         "Actual HC": actual_hc,
-                        "Variance (HC)": hc_variance
+                        "Gap (Agents)": actual_hc - row['Required HC']
                     })
 
-            st.divider()
-            st.subheader("📊 Summary Table")
             st.table(pd.DataFrame(final_results))
-
-        else:
-            st.error("❌ الملف لازم يحتوي على عمود للغة (Language) وعمود للساعات (Hours)")
-            
     except Exception as e:
-        st.error(f"حدث خطأ: {e}")
+        st.error(f"خطأ: {e}")
