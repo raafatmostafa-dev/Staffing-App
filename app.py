@@ -3,10 +3,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Staffing Planner", layout="wide")
+st.set_page_config(page_title="Workload vs Capacity Planner", layout="wide")
 
-st.title("📊 Staffing & Capacity Planner")
-st.write("حساب عدد الموظفين بناءً على الساعات المطلوبة وسعة عمل الموظف")
+st.title("📊 Staffing Variance & Shrinkage Calculator")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
@@ -15,48 +14,71 @@ if uploaded_file:
         data = pd.read_excel(uploaded_file)
         data.columns = [str(c).strip().lower() for c in data.columns]
         
-        st.subheader("📄 معاينة البيانات")
-        st.dataframe(data.head())
+        # 1. إعدادات المدخلات في الجنب
+        st.sidebar.header("⚙️ Calculations Settings")
+        
+        # الهيد كاونت الفعلي الحالي
+        actual_headcount = st.sidebar.number_input("Actual Headcount (العدد الحالي)", value=10)
+        
+        # نسبة الشرينكيدج (مثلاً 20%)
+        shrinkage_pct = st.sidebar.slider("Shrinkage % (النسبة المفقودة)", 0, 100, 20) / 100
+        
+        # أيام العمل وساعات الـ Shift
+        working_days = st.sidebar.number_input("Working Days (per month)", value=22)
+        shift_hours = 8
+        
+        # 2. الحسابات الأساسية
+        # حساب سعة الموظف الواحد (أسبوعياً)
+        individual_weekly_paid_hours = (working_days * shift_hours) / 4
+        
+        # إجمالي الساعات المدفوعة (قبل الشرينكيدج)
+        total_paid_hours = actual_headcount * individual_weekly_paid_hours
+        
+        # إجمالي الساعات الفعلية المتاحة (بعد خصم الشرينكيدج)
+        # المعادلة: الساعات المدفوعة × (1 - نسبة الشرينكيدج)
+        actual_available_hours = total_paid_hours * (1 - shrinkage_pct)
 
-        # البحث عن عمود الساعات (hours) وعمود الفترة (week/date)
-        col_period = data.columns[0]
+        # 3. قراءة الساعات المطلوبة من الملف (Target Hours)
         col_hours = next((c for c in data.columns if 'hour' in c or 'ساع' in c), None)
-
+        
         if col_hours:
-            # 1. حساب متوسط الساعات المطلوبة (أسبوعياً)
-            avg_required_hours = data[col_hours].tail(4).mean()
+            target_hours = data[col_hours].tail(4).mean() # متوسط آخر 4 أسابيع كـ Target
             
-            # 2. إعدادات سعة الموظف (معادلتك: أيام العمل × 8 ساعات)
-            st.sidebar.header("⚙️ إعدادات Capacity الموظف")
-            working_days = st.sidebar.number_input("عدد أيام العمل في الشهر (Network Days)", value=22)
-            daily_hours = 8
+            # 4. حساب الفارينس (الفرق)
+            # الفرق بين الساعات اللي الشغل محتاجها والساعات اللي الناس هتوفرها فعلياً
+            variance_hours = actual_available_hours - target_hours
             
-            # حساب سعة الموظف الشهرية والأسبوعية
-            monthly_capacity = working_days * daily_hours
-            weekly_capacity = monthly_capacity / 4  # عشان نقارن أسبوع بأسبوع
-
-            # 3. النتائج
+            # عرض النتائج في بطاقات (Metrics)
             st.divider()
-            c1, c2, c3 = st.columns(3)
-            c1.metric("متوسط الساعات المطلوبة (أسبوعياً)", f"{round(avg_required_hours, 1)} hr")
-            c2.metric("سعة الموظف الأسبوعية", f"{weekly_capacity} hr")
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Target Hours (Required)", f"{round(target_hours)} hr")
+            m2.metric("Total Paid Hours", f"{round(total_paid_hours)} hr")
+            m3.metric("Actual Available (After Shrinkage)", f"{round(actual_available_hours)} hr")
             
-            # حساب الموظفين: الساعات المطلوبة ÷ سعة الموظف الواحدة
-            needed_agents = int(np.ceil(avg_required_hours / weekly_capacity))
-            c3.metric("عدد الموظفين المطلوبين", f"{needed_agents} Agents")
+            # لون الفارينس (أخضر لو زيادة، أحمر لو عجز)
+            color = "normal" if variance_hours >= 0 else "inverse"
+            m4.metric("Variance (Gap)", f"{round(variance_hours)} hr", delta=round(variance_hours), delta_color=color)
 
-            # الرسم البياني للمقارنة
-            st.subheader("📊 Comparison: Load vs Capacity")
-            fig, ax = plt.subplots(figsize=(10, 4))
-            ax.barh(["Workload (Hours)", "Agent Capacity"], [avg_required_hours, weekly_capacity], color=['#FF4B4B', '#00CC96'])
-            st.pyplot(fig)
-            
-            if avg_required_hours > weekly_capacity * needed_agents:
-                st.warning("⚠️ تنبيه: عدد الموظفين قد لا يكفي لتغطية الساعات المطلوبة بدقة.")
+            # 5. تحليل النتيجة
+            st.subheader("📝 Variance Analysis")
+            if variance_hours < 0:
+                needed_hours = abs(variance_hours)
+                # كام موظف محتاجينهم عشان نغطي العجز (بعد الشرينكيدج)
+                extra_agents_needed = int(np.ceil(needed_hours / (individual_weekly_paid_hours * (1 - shrinkage_pct))))
+                st.error(f"⚠️ عندك عجز **{round(needed_hours)}** ساعة. محتاج تعين **{extra_agents_needed}** موظفين إضافيين لتغطية العجز مع حساب الشرينكيدج.")
             else:
-                st.success(f"✅ تم الحساب: لتغطية {round(avg_required_hours)} ساعة أسبوعياً، تحتاج إلى {needed_agents} موظفين.")
+                st.success(f"✅ مبروك! عندك فائض **{round(variance_hours)}** ساعة عمل بعد حساب الشرينكيدج.")
+
+            # رسم بياني توضيحي
+            st.subheader("📊 Workload vs Actual Capacity")
+            fig, ax = plt.subplots(figsize=(10, 4))
+            categories = ['Target Hours', 'Actual Available (After Shrinkage)']
+            values = [target_hours, actual_available_hours]
+            ax.bar(categories, values, color=['#555555', '#00CC96' if variance_hours >= 0 else '#FF4B4B'])
+            st.pyplot(fig)
+
         else:
-            st.error("❌ لم يتم العثور على عمود باسم 'hours' في الملف.")
+            st.error("❌ تأكد أن الملف يحتوي على عمود الساعات المطلوبة (hours)")
 
     except Exception as e:
-        st.error(f"حدث خطأ أثناء المعالجة: {e}")
+        st.error(f"حدث خطأ: {e}")
