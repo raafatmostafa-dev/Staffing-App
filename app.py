@@ -21,63 +21,62 @@ def format_time_index(t):
 
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "⏰ Intraday", "🗓️ Scheduling", "⚖️ Net Staffing"])
 
-# --- TAB 1: Capacity (التحليل الشامل تحت بعضه) ---
+# --- TAB 1: Capacity Dashboard (عرض الكل تحت بعض) ---
 with tab1:
     with st.sidebar:
-        st.header("⚙️ Global Configuration")
+        st.header("⚙️ Configuration")
         d_range = st.date_input("Analysis Period", [date(2026, 2, 1), date(2026, 2, 28)])
         start_date, end_date = d_range[0], (d_range[1] if len(d_range) > 1 else d_range[0])
-        main_file = st.file_uploader("Upload Data.xlsx (Master)", type=["xlsx"])
+        main_file = st.file_uploader("Upload Data.xlsx", type=["xlsx"])
 
     if main_file:
-        df_all = pd.read_excel(main_file, sheet_name=0) # قراءة البيانات الأساسية
-        sel_lang = st.selectbox("🌍 Select Language", df_all.iloc[:, 0].unique(), key="cap_lang_selector")
+        df_all = pd.read_excel(main_file, sheet_name=0) # قراءة الشيت الأساسي
         
-        # استخراج البيانات الأساسية من الصف المختار
-        row = df_all[df_all.iloc[:, 0] == sel_lang].iloc[0]
-        target_workload_hrs = float(row.iloc[1]) # الساعات المستهدفة
-        actual_hc_count = float(row.iloc[2])      # الموظفين المتاحين حالياً
-        shrink_val = float(row.iloc[3])
-        shrink_p = shrink_val / 100 if shrink_val > 1 else shrink_val # تحويل لنسبة مئوية
-        
-        # حسابات الوقت الأساسية
+        # حسابات الوقت العامة
         working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
         base_hrs_per_person = working_days * 8
-        
-        # 1. تحليل الساعات (Hours Analysis) - مع اعتبار الشرينكيدج
-        # الساعات الفعلية المتاحة (بعد خصم الشرينكيدج)
-        actual_available_hrs = (actual_hc_count * base_hrs_per_person) * (1 - shrink_p)
-        hrs_variance = actual_available_hrs - target_workload_hrs
-        
-        # 2. تحليل الموظفين (Headcount Analysis) - مع اعتبار الشرينكيدج
-        # الموظفين المطلوبين لتغطية الساعات المستهدفة
-        req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
-        hc_variance = actual_hc_count - req_hc
 
-        st.markdown(f"## 📈 Strategic Analysis: {sel_lang}")
-        st.divider()
+        st.title("🌍 Global Fleet Capacity Dashboard")
+        st.info(f"Analysis for {working_days} working days ({base_hrs_per_person} base hours/FTE)")
 
-        # القسم الأول: تحليل الساعات (تحت بعض)
-        st.subheader("⏱️ Hours Performance (Shrinkage Applied)")
-        h1, h2, h3 = st.columns(3)
-        h1.metric("Target Workload", f"{int(target_workload_hrs):,}h")
-        h2.metric("Actual Available Hours", f"{int(actual_available_hrs):,}h")
-        h3.metric("Hours Variance", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
-        
-        st.write("") # مسافة للتنظيم
+        # لوب (Loop) عشان نعرض كل لغة في كارت لوحدها تحت بعض
+        for index, row in df_all.iterrows():
+            lang_name = str(row.iloc[0])
+            target_workload_hrs = float(row.iloc[1])
+            actual_hc_count = float(row.iloc[2])
+            shrink_p = float(row.iloc[3]) / 100 if float(row.iloc[3]) > 1 else float(row.iloc[3])
 
-        # القسم الثاني: تحليل الموظفين (تحت بعض)
-        st.subheader("👥 Headcount Requirements (Shrinkage Applied)")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Required FTEs", f"{int(req_hc)} HC")
-        c2.metric("Actual FTEs", f"{int(actual_hc_count)} HC")
-        c3.metric("Staffing Gap", f"{int(hc_variance)} HC", delta=int(hc_variance))
-        
-        st.divider()
-        st.info(f"💡 Calculated based on **{working_days} working days** with a **{shrink_p*100:.1f}% Shrinkage** factor.")
+            # الحسابات مع اعتبار الشرينكيدج في الاتنين
+            # 1. تحليل الساعات
+            actual_available_hrs = (actual_hc_count * base_hrs_per_person) * (1 - shrink_p)
+            hrs_variance = actual_available_hrs - target_workload_hrs
+            
+            # 2. تحليل الموظفين
+            req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
+            hc_variance = actual_hc_count - req_hc
 
-# --- التابات الأخرى (مرتبطة بفلتر لغة الانترا داي) ---
+            # تصميم الكارت الاحترافي لكل لغة
+            with st.expander(f"🚩 Language: {lang_name.upper()}", expanded=True):
+                # عرض الساعات
+                st.markdown(f"#### ⏱️ Hours Performance (Shrinkage: {shrink_p*100:.1f}%)")
+                h1, h2, h3 = st.columns(3)
+                h1.metric("Target Workload", f"{int(target_workload_hrs):,}h")
+                h2.metric("Actual Available", f"{int(actual_available_hrs):,}h")
+                h3.metric("Hours Variance", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
+
+                # عرض الموظفين
+                st.markdown(f"#### 👥 Headcount Requirements")
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Required FTEs", f"{int(req_hc)} HC")
+                c2.metric("Actual FTEs", f"{int(actual_hc_count)} HC")
+                c3.metric("Staffing Gap", f"{int(hc_variance)} HC", delta=int(hc_variance))
+            
+            st.markdown("---") # فاصل بين كل لغة والتانية
+
+# --- بقية التابات مرتبطة بفلتر اللغة في الانتراداي لضمان عدم ظهور None ---
 with tab2:
+    # سيتم وضع فلتر اللغة هنا للتحكم في الجداول التفصيلية
+    pass
     st.subheader("⏰ Interval Requirements")
     intra_file = st.file_uploader("Upload Required.xlsx", type=["xlsx"])
     if intra_file:
@@ -114,3 +113,4 @@ with tab4:
         if common_cols:
             df_net = d_cov[common_cols] - d_intra[common_cols]
             st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
