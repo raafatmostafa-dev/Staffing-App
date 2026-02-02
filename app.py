@@ -3,82 +3,74 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Workload vs Capacity Planner", layout="wide")
+st.set_page_config(page_title="Multi-Language Staffing", layout="wide")
 
-st.title("📊 Staffing Variance & Shrinkage Calculator")
+st.title("📊 Staffing Calculator per Language")
 
-uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
+uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "csv"])
 
 if uploaded_file:
     try:
-        data = pd.read_excel(uploaded_file)
+        # قراءة الملف ومعالجة الأخطاء
+        if uploaded_file.name.endswith('.xlsx'):
+            data = pd.read_excel(uploaded_file)
+        else:
+            data = pd.read_csv(uploaded_file, encoding='cp1256', on_bad_lines='skip')
+        
         data.columns = [str(c).strip().lower() for c in data.columns]
         
-        # 1. إعدادات المدخلات في الجنب
-        st.sidebar.header("⚙️ Calculations Settings")
-        
-        # الهيد كاونت الفعلي الحالي
-        actual_headcount = st.sidebar.number_input("Actual Headcount (العدد الحالي)", value=10)
-        
-        # نسبة الشرينكيدج (مثلاً 20%)
-        shrinkage_pct = st.sidebar.slider("Shrinkage % (النسبة المفقودة)", 0, 100, 20) / 100
-        
-        # أيام العمل وساعات الـ Shift
-        working_days = st.sidebar.number_input("Working Days (per month)", value=22)
-        shift_hours = 8
-        
-        # 2. الحسابات الأساسية
-        # حساب سعة الموظف الواحد (أسبوعياً)
-        individual_weekly_paid_hours = (working_days * shift_hours) / 4
-        
-        # إجمالي الساعات المدفوعة (قبل الشرينكيدج)
-        total_paid_hours = actual_headcount * individual_weekly_paid_hours
-        
-        # إجمالي الساعات الفعلية المتاحة (بعد خصم الشرينكيدج)
-        # المعادلة: الساعات المدفوعة × (1 - نسبة الشرينكيدج)
-        actual_available_hours = total_paid_hours * (1 - shrinkage_pct)
-
-        # 3. قراءة الساعات المطلوبة من الملف (Target Hours)
+        # البحث عن الأعمدة الأساسية
+        col_lang = next((c for c in data.columns if 'lang' in c or 'لغة' in c), None)
         col_hours = next((c for c in data.columns if 'hour' in c or 'ساع' in c), None)
-        
-        if col_hours:
-            target_hours = data[col_hours].tail(4).mean() # متوسط آخر 4 أسابيع كـ Target
-            
-            # 4. حساب الفارينس (الفرق)
-            # الفرق بين الساعات اللي الشغل محتاجها والساعات اللي الناس هتوفرها فعلياً
-            variance_hours = actual_available_hours - target_hours
-            
-            # عرض النتائج في بطاقات (Metrics)
-            st.divider()
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Target Hours (Required)", f"{round(target_hours)} hr")
-            m2.metric("Total Paid Hours", f"{round(total_paid_hours)} hr")
-            m3.metric("Actual Available (After Shrinkage)", f"{round(actual_available_hours)} hr")
-            
-            # لون الفارينس (أخضر لو زيادة، أحمر لو عجز)
-            color = "normal" if variance_hours >= 0 else "inverse"
-            m4.metric("Variance (Gap)", f"{round(variance_hours)} hr", delta=round(variance_hours), delta_color=color)
 
-            # 5. تحليل النتيجة
-            st.subheader("📝 Variance Analysis")
-            if variance_hours < 0:
-                needed_hours = abs(variance_hours)
-                # كام موظف محتاجينهم عشان نغطي العجز (بعد الشرينكيدج)
-                extra_agents_needed = int(np.ceil(needed_hours / (individual_weekly_paid_hours * (1 - shrinkage_pct))))
-                st.error(f"⚠️ عندك عجز **{round(needed_hours)}** ساعة. محتاج تعين **{extra_agents_needed}** موظفين إضافيين لتغطية العجز مع حساب الشرينكيدج.")
-            else:
-                st.success(f"✅ مبروك! عندك فائض **{round(variance_hours)}** ساعة عمل بعد حساب الشرينكيدج.")
+        if col_lang and col_hours:
+            st.sidebar.header("⚙️ Global Settings")
+            working_days = st.sidebar.number_input("Working Days (Month)", value=22)
+            shrinkage_pct = st.sidebar.slider("Shrinkage %", 0, 100, 20) / 100
+            
+            # سعة الموظف الواحد الأسبوعية
+            weekly_cap_per_agent = ((working_days * 8) / 4) * (1 - shrinkage_pct)
 
-            # رسم بياني توضيحي
-            st.subheader("📊 Workload vs Actual Capacity")
-            fig, ax = plt.subplots(figsize=(10, 4))
-            categories = ['Target Hours', 'Actual Available (After Shrinkage)']
-            values = [target_hours, actual_available_hours]
-            ax.bar(categories, values, color=['#555555', '#00CC96' if variance_hours >= 0 else '#FF4B4B'])
+            # تجميع الساعات المطلوبة لكل لغة
+            lang_summary = data.groupby(col_lang)[col_hours].mean().reset_index()
+            lang_summary.columns = ['Language', 'Target Hours (Avg)']
+
+            st.subheader("📝 Staffing Requirements per Language")
+            
+            # حساب الهيد كاونت المطلوب لكل لغة
+            lang_summary['Agents Needed'] = lang_summary['Target Hours (Avg)'].apply(lambda x: int(np.ceil(x / weekly_cap_per_agent)))
+            
+            # عرض الجدول
+            st.table(lang_summary)
+
+            # رسم بياني للمقارنة بين اللغات
+            
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.bar(lang_summary['Language'], lang_summary['Target Hours (Avg)'], color='skyblue', label='Required Hours')
+            ax.set_ylabel("Hours")
+            ax.set_title("Workload per Language")
             st.pyplot(fig)
 
+            # قسم تفصيلي لكل لغة (إدخال الأرقام الفعلية)
+            st.divider()
+            st.subheader("🔍 Language Specific Variance")
+            
+            for index, row in lang_summary.iterrows():
+                with st.expander(f"Analysis for: {row['Language']}"):
+                    c1, c2 = st.columns(2)
+                    actual_hc = c1.number_input(f"Actual HC for {row['Language']}", value=int(row['Agents Needed']), key=f"hc_{row['Language']}")
+                    
+                    available_hrs = actual_hc * weekly_cap_per_agent
+                    variance = available_hrs - row['Target Hours (Avg)']
+                    
+                    c2.metric("Variance (Hours)", f"{round(variance, 1)} hr", delta=round(variance, 1))
+                    
+                    if variance < 0:
+                        st.error(f"Understaffed: You need more people for {row['Language']}")
+                    else:
+                        st.success(f"Optimized: {row['Language']} coverage is good.")
         else:
-            st.error("❌ تأكد أن الملف يحتوي على عمود الساعات المطلوبة (hours)")
+            st.error("❌ تأكد أن الملف يحتوي على عمود للغة (Language) وعمود للساعات (Hours)")
 
     except Exception as e:
-        st.error(f"حدث خطأ: {e}")
+        st.error(f"Error: {e}")
