@@ -85,7 +85,7 @@ with tab2:
         except Exception as e:
             st.error(f"Error in Intraday: {e}")
 
-# --- TAB 3: SCHEDULING ---
+# --- TAB 3: SCHEDULING (تحويل المواعيد لتغطية رقمية) ---
 with tab3:
     st.subheader("Employee Staffing Schedules")
     sched_file = st.file_uploader("Upload Schedules.xlsx", type=["xlsx"], key="sched_up")
@@ -96,14 +96,55 @@ with tab3:
             selected_lang_sched = st.selectbox("Select Language (Schedule)", xls_sched.sheet_names)
             df_sched = pd.read_excel(sched_file, sheet_name=selected_lang_sched)
             
-            # تنظيف السكادول
             if not df_sched.empty:
-                if 'Day' in df_sched.columns:
-                    df_sched['Day'] = pd.to_datetime(df_sched['Day'], errors='coerce').dt.strftime('%Y-%m-%d')
-                for c in ['Start Time', 'End Time']:
-                    if c in df_sched.columns:
-                        df_sched[c] = pd.to_datetime(df_sched[c], errors='coerce').dt.strftime('%I:%M %p')
-            
-            st.dataframe(df_sched.fillna("-"), use_container_width=True)
+                # 1. تنظيف البيانات الأساسية
+                df_sched['Day'] = pd.to_datetime(df_sched['Day'], errors='coerce')
+                
+                # 2. إنشاء قائمة بكل الـ Intervals (كل نص ساعة)
+                intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
+                
+                # 3. الحصول على التواريخ الفريدة الموجودة في الشيت
+                unique_days = df_sched['Day'].dropna().unique()
+                unique_days = sorted(unique_days)
+                
+                # 4. بناء جدول التغطية (نفس فيو الانترا داي)
+                coverage_data = {"Intervals": intervals}
+                
+                for day in unique_days:
+                    day_str = pd.to_datetime(day).strftime('%Y-%m-%d')
+                    daily_counts = []
+                    
+                    # فلترة الموظفين الشغالين في هذا اليوم
+                    day_df = df_sched[df_sched['Day'] == day]
+                    
+                    for slot in intervals:
+                        slot_time = datetime.strptime(slot, '%H:%M').time()
+                        count = 0
+                        
+                        for _, row in day_df.iterrows():
+                            try:
+                                # تحويل وقت البداية والنهاية للموظف
+                                start = pd.to_datetime(row['Start Time']).time()
+                                end = pd.to_datetime(row['End Time']).time()
+                                
+                                # التحقق إذا كان الموظف يعمل في هذه الفترة
+                                if start <= slot_time < end:
+                                    count += 1
+                            except:
+                                continue
+                        daily_counts.append(count)
+                    
+                    coverage_data[day_str] = daily_counts
+                
+                # 5. عرض النتيجة النهائية
+                df_coverage = pd.DataFrame(coverage_data)
+                st.success(f"Calculated Coverage for: **{selected_lang_sched}**")
+                
+                # عرض الجدول الرقمي (كل نص ساعة كم موظف موجود)
+                st.dataframe(df_coverage, use_container_width=True)
+                
+                # رسم بياني للتغطية
+                st.line_chart(df_coverage.set_index('Intervals'))
+
         except Exception as e:
-            st.error(f"Error in Schedules: {e}")
+            st.error(f"Error calculating coverage: {e}")
