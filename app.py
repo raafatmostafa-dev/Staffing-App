@@ -5,7 +5,7 @@ from datetime import date, datetime, time
 
 st.set_page_config(page_title="WFM Professional Suite", layout="wide")
 
-# --- دالة التلوين للأرقام الصحيحة ---
+# --- دالة التلوين (أرقام صحيحة) ---
 def color_net_staffing(val):
     try:
         if val < 0: return 'background-color: #ffcccc; color: #900000; font-weight: bold'
@@ -13,7 +13,7 @@ def color_net_staffing(val):
     except: pass
     return ''
 
-# --- تنقية الشيتات ---
+# --- دالة تنقية الشيتات (إلغاء أي شيت افتراضي) ---
 def get_clean_sheets(xls_file):
     all_sheets = pd.ExcelFile(xls_file).sheet_names
     return [s for s in all_sheets if "Sheet" not in s]
@@ -29,9 +29,7 @@ def format_time_index(t):
 
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity", "⏰ Intraday", "🗓️ Scheduling", "⚖️ Net Staffing"])
 
-# ---------------------------------------------------------
-# TAB 1: CAPACITY PLANNING (المعادلات الأصلية)
-# ---------------------------------------------------------
+# --- التابة الأولى: Capacity ---
 with tab1:
     with st.sidebar:
         st.header("⚙️ Global Settings")
@@ -39,20 +37,15 @@ with tab1:
         start_date = d_range[0]
         end_date = d_range[1] if len(d_range) > 1 else d_range[0]
         
-        # حساب أيام العمل والساعات
-        working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
-        base_hours = working_days * 8
-        st.info(f"📅 Working Days: {working_days} | ⏳ Base Hours: {base_hours}")
-        
         main_file = st.file_uploader("Upload Data.xlsx (Capacity)", type=["xlsx"])
 
     if main_file:
-        clean_sheets = get_clean_sheets(main_file)
-        sel_lang = st.selectbox("Select Language", clean_sheets)
-        st.session_state['active_lang'] = sel_lang
-        
-        df_cap = pd.read_excel(main_file, sheet_name=sel_lang)
+        sel_lang_cap = st.selectbox("Select Language (Capacity)", get_clean_sheets(main_file), key="cap_lang")
+        df_cap = pd.read_excel(main_file, sheet_name=sel_lang_cap)
         df_cap.columns = [str(c).strip().lower() for c in df_cap.columns]
+        
+        working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
+        base_hours = working_days * 8
         
         col_t = next((c for c in df_cap.columns if 'target' in c), None)
         col_a = next((c for c in df_cap.columns if 'actual' in c), None)
@@ -68,47 +61,38 @@ with tab1:
             c2.metric("Required HC", int(req_hc))
             c3.metric("HC Variance", int(float(row[col_a]) - req_hc))
 
-# ---------------------------------------------------------
-# TAB 2: INTRADAY (قراءة النص ساعة بدقة)
-# ---------------------------------------------------------
+# --- التابة الثانية: Intraday (فلتر لغة منفصل) ---
 with tab2:
     st.subheader("Half-Hour Interval Requirements")
     intra_file = st.file_uploader("Upload Required.xlsx", type=["xlsx"])
     if intra_file:
-        lang = st.session_state.get('active_lang', get_clean_sheets(intra_file)[0])
-        df_raw = pd.read_excel(intra_file, sheet_name=lang, header=None)
+        lang_int = st.selectbox("Select Language (Intraday)", get_clean_sheets(intra_file), key="int_lang_select")
+        df_raw = pd.read_excel(intra_file, sheet_name=lang_int, header=None)
         
-        # معالجة التواريخ في الهيدر
+        # معالجة الهيدر
         dates_row = df_raw.iloc[0, 1:].values
         new_cols = ["Intervals"] + [pd.to_datetime(d).strftime('%Y-%m-%d') for d in dates_row]
         
         df_intra = df_raw.drop(0).copy()
         df_intra.columns = new_cols
-        
-        # توحيد شكل وقت الانترفال (00:00, 00:30...)
         df_intra['Intervals'] = df_intra['Intervals'].apply(format_time_index)
         
-        # تحويل القيم لأرقام صحيحة
         final_intra = df_intra.set_index('Intervals').apply(pd.to_numeric, errors='coerce').fillna(0).round(0).astype(int)
         st.session_state['df_intra'] = final_intra
         st.dataframe(final_intra, use_container_width=True)
 
-# ---------------------------------------------------------
-# TAB 3: SCHEDULING (حساب التغطية الفعلي)
-# ---------------------------------------------------------
+# --- التابة الثالثة: Scheduling (فلتر لغة منفصل) ---
 with tab3:
     st.subheader("Employee Staffing Coverage")
     sched_file = st.file_uploader("Upload Schedules.xlsx", type=["xlsx"])
     if sched_file:
-        lang_s = st.session_state.get('active_lang', get_clean_sheets(sched_file)[0])
-        df_s = pd.read_excel(sched_file, sheet_name=lang_s)
+        lang_sch = st.selectbox("Select Language (Schedule)", get_clean_sheets(sched_file), key="sch_lang_select")
+        df_s = pd.read_excel(sched_file, sheet_name=lang_sch)
         
-        # توليد انترفالات النص ساعة
         intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
         df_s['Day'] = pd.to_datetime(df_s['Day'], errors='coerce')
         
         cov_dict = {"Intervals": intervals}
-        # فلتر بناءً على الرينج المختار في السايد بار
         target_dates = pd.date_range(start_date, end_date).strftime('%Y-%m-%d').tolist()
         
         for d_str in target_dates:
@@ -123,7 +107,6 @@ with tab3:
                         if st_v in ['OFF', 'NAN', '-', '']: continue
                         st_t = pd.to_datetime(st_v).time()
                         en_t = pd.to_datetime(str(r['End Time'])).time()
-                        # التعامل مع نوبتيات الليل (Shift across midnight)
                         if st_t <= en_t:
                             if st_t <= slot_t < en_t: c += 1
                         else: # نوبيتة ليلية
@@ -136,22 +119,23 @@ with tab3:
         st.session_state['df_cov'] = final_cov
         st.dataframe(final_cov, use_container_width=True)
 
-# ---------------------------------------------------------
-# TAB 4: NET STAFFING (المقارنة النهائية)
-# ---------------------------------------------------------
+# --- التابة الرابعة: Net Staffing (مقارنة بناءً على ما تم اختياره) ---
 with tab4:
+    st.subheader("Net Staffing Analysis")
     if 'df_intra' in st.session_state and 'df_cov' in st.session_state:
         d_intra = st.session_state['df_intra']
         d_cov = st.session_state['df_cov']
         
-        # محاذاة الجداول (Aligning) لمنع الـ None والبلانك
         common_cols = [c for c in d_cov.columns if c in d_intra.columns]
         if common_cols:
-            # التأكد من مطابقة الصفوف (Intervals)
             d_cov_aligned = d_cov.reindex(d_intra.index).fillna(0).astype(int)
             df_net = d_cov_aligned[common_cols] - d_intra[common_cols]
             
-            st.write("⚖️ Staffing Gap Analysis (Scheduled - Required)")
+            st.write("🟢 **Green** = Surplus | 🔴 **Red** = Shortage")
             st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+            
+            # ملخص سريع
+            total_gap = df_net.sum().sum()
+            st.info(f"Total Net Staffing Gap for selected period: {int(total_gap)} intervals")
         else:
-            st.warning("⚠️ No matching dates found between Required and Schedule files.")
+            st.warning("⚠️ No matching dates found between the selected language data in Intraday and Scheduling.")
