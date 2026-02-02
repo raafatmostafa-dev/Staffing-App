@@ -73,14 +73,14 @@ if check_auth():
         /* 1. جعل العمود الجانبي (Sidebar) دارك مود */
         [data-testid="stSidebar"] {
             background-color: #1E1E1E !important;
-            color: white !important;
+            color: black !important;
         }
         [data-testid="stSidebar"] .stMarkdown p, [data-testid="stSidebar"] label {
             color: #00FFCC !important; /* لون الخطوط داخل السايدبار */
         }
         [data-testid="stSidebar"] .stButton button {
             background-color: #333;
-            color: black;
+            color: white;
             border: 1px solid #00FFCC;
         }
 
@@ -217,4 +217,5 @@ if check_auth():
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
 
