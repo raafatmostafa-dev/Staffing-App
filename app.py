@@ -19,7 +19,7 @@ def set_bg_image(image_file):
         .stApp {{
             background-image: url("data:image/png;base64,{b64_encoded}");
             background-size: cover;
-            background-position: center 0%;
+            background-position: center 30%;
             background-attachment: fixed;
         }}
         </style>
@@ -218,6 +218,7 @@ if check_auth():
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
 
 
 
