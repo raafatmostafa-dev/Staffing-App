@@ -111,8 +111,7 @@ if check_auth():
         except: return str(t)
 
     # تعديل مسمى التابة هنا
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requirements", "🗓️ Scheduling", "⚖️ Net Staffing"])    
-    with tab1:
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requirements", "🗓️ Scheduling", "⚖️ Net Staffing"], key="new_tabs_v2")    with tab1:
         with st.sidebar:
             st.header("⚙️ Configuration")
             d_range = st.date_input("Analysis Period", [date(2026, 2, 1), date(2026, 2, 28)])
@@ -216,6 +215,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requ
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
 
 
 
