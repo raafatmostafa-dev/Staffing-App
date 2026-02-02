@@ -85,7 +85,7 @@ with tab2:
         except Exception as e:
             st.error(f"Error in Intraday: {e}")
 
-# --- TAB 3: SCHEDULING (المعالجة الصحيحة للتغطية) ---
+# --- TAB 3: SCHEDULING (حل مشكلة قراءة التيكست) ---
 with tab3:
     st.subheader("Employee Staffing Schedules")
     sched_file = st.file_uploader("Upload Schedules.xlsx", type=["xlsx"], key="sched_up")
@@ -94,13 +94,13 @@ with tab3:
         try:
             xls_sched = pd.ExcelFile(sched_file)
             selected_lang_sched = st.selectbox("Select Language (Schedule)", xls_sched.sheet_names)
-            df_sched = pd.read_excel(sched_file, sheet_name=selected_lang_sched)
+            df_sched = pd.read_excel(xls_sched, sheet_name=selected_lang_sched)
             
             if not df_sched.empty:
-                # 1. تجهيز قائمة الـ Intervals (نفس تنسيق شيت الريكوايرد)
+                # 1. تجهيز الـ Intervals
                 intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
                 
-                # 2. تنظيف عمود اليوم واستخراج التواريخ الفريدة
+                # 2. تنظيف التاريخ وتجاهل الـ OFF
                 df_sched['Day'] = pd.to_datetime(df_sched['Day'], errors='coerce')
                 unique_days = sorted(df_sched['Day'].dropna().unique())
                 
@@ -110,29 +110,29 @@ with tab3:
                     day_str = pd.to_datetime(day).strftime('%Y-%m-%d')
                     daily_counts = []
                     
-                    # فلترة بيانات اليوم المختار
+                    # فلترة بيانات اليوم
                     day_df = df_sched[df_sched['Day'] == day].copy()
                     
                     for slot in intervals:
-                        slot_dt = datetime.strptime(slot, '%H:%M')
+                        # تحويل الـ slot لوقت حقيقي للمقارنة
+                        slot_time = datetime.strptime(slot, '%H:%M').time()
                         count = 0
                         
                         for _, row in day_df.iterrows():
                             try:
-                                # تجاهل الموظفين اللي عندهم OFF
-                                if str(row['Start Time']).strip().upper() == 'OFF':
+                                # تحويل المواعيد من تيكست لوقت
+                                s_val = str(row['Start Time']).strip().upper()
+                                e_val = str(row['End Time']).strip().upper()
+                                
+                                if s_val == 'OFF' or s_val == 'NAN':
                                     continue
-                                    
-                                # تحويل وقت البداية والنهاية لمقارنته بالـ Slot
-                                # بنستخدم pd.to_datetime عشان يتعامل مع الـ AM/PM صح
-                                start_dt = pd.to_datetime(row['Start Time'])
-                                end_dt = pd.to_datetime(row['End Time'])
                                 
-                                # توحيد التاريخ للمقارنة بالوقت فقط
-                                s_time = start_dt.replace(year=1900, month=1, day=1)
-                                e_time = end_dt.replace(year=1900, month=1, day=1)
+                                # استخدام pd.to_datetime لفك تشفير الـ AM/PM
+                                start_time = pd.to_datetime(s_val).time()
+                                end_time = pd.to_datetime(e_val).time()
                                 
-                                if s_time <= slot_dt < e_time:
+                                # مقارنة الوقت (هل الـ slot تقع بين البداية والنهاية؟)
+                                if start_time <= slot_time < end_time:
                                     count += 1
                             except:
                                 continue
@@ -140,15 +140,15 @@ with tab3:
                     
                     coverage_data[day_str] = daily_counts
                 
-                # 3. عرض الجدول النهائي
+                # 3. عرض النتائج
                 df_coverage = pd.DataFrame(coverage_data)
                 st.success(f"Calculated Coverage for: **{selected_lang_sched}**")
                 
-                # عرض الجدول الرقمي (هيظهر الأرقام دلوقتي بدل الأصفار)
+                # الجدول الرقمي - الأرقام هتظهر هنا دلوقتي
                 st.dataframe(df_coverage, use_container_width=True)
                 
                 # رسم بياني للتغطية
                 st.line_chart(df_coverage.set_index('Intervals'))
 
         except Exception as e:
-            st.error(f"Error calculating coverage: {e}")
+            st.error(f"Error in Schedules: {e}")
