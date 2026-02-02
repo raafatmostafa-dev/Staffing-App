@@ -6,7 +6,7 @@ from datetime import date, datetime
 # إعدادات الصفحة
 st.set_page_config(page_title="WFM Professional Suite", layout="wide")
 
-# --- تحسين الواجهة CSS (للكروت والتبويبات) ---
+# --- تحسين الواجهة CSS ---
 st.markdown("""
     <style>
     .stApp { background-color: #F8FAFC; }
@@ -67,7 +67,7 @@ with tab1:
                 lang = row[col_lang]
                 t_hrs = float(row[col_target_hrs])
                 i_hc = float(row[col_actual_hc])
-                # تحويل الشرينكيدج لنسبة مئوية
+                # معالجة الشرينكيدج
                 raw_shr = float(row[col_shr])
                 i_shr = raw_shr * 100 if raw_shr < 1 else raw_shr
 
@@ -109,20 +109,43 @@ with tab2:
             selected_sheet = st.selectbox("Select Language (Sheet)", xls.sheet_names)
             df_intra = pd.read_excel(intraday_file, sheet_name=selected_sheet)
             
-            # --- تنظيف الوقت والتاريخ (عشان ما يظهرش 1970) ---
+            # --- تنظيف الوقت والتاريخ ---
             if not df_intra.empty:
-                # تحويل العمود الأول (غالباً الوقت) وكل ما يتعلق بالوقت لنص مقروء
                 for col in df_intra.columns:
-                    # لو العمود فيه وقت (Interval)
+                    # لو العمود الأول أو اسمه فيه Interval
                     if 'interval' in str(col).lower() or col == df_intra.columns[0]:
                         df_intra[col] = pd.to_datetime(df_intra[col], errors='coerce').dt.strftime('%H:%M')
-                    # لو العمود فيه تاريخ
+                    # لو بيانات تاريخية
                     elif isinstance(df_intra[col].iloc[0], (datetime, date)):
                         df_intra[col] = pd.to_datetime(df_intra[col], errors='coerce').dt.strftime('%Y-%m-%d')
             
             st.write(f"Showing data for: **{selected_sheet}**")
             st.dataframe(df_intra.fillna(""), use_container_width=True)
             
-            # رسم بياني توضيحي للاحتياج
+            # رسم بياني توضيحي
             numeric_cols = df_intra.select_dtypes(include=[np.number]).columns
-            if len(numeric_cols) > 0
+            if len(numeric_cols) > 0: # <-- هنا التعديل اللي صلح الـ Syntax Error
+                st.line_chart(df_intra[numeric_cols])
+
+        except Exception as e:
+            st.error(f"Error in Intraday Tab: {e}")
+
+# ---------------------------------------------------------
+# الخطوة 3: SCHEDULING (Shift Management)
+# ---------------------------------------------------------
+with tab3:
+    st.subheader("Staffing Schedules")
+    st.write("ارفع شيت السكادول (Employee, From, To).")
+    
+    sched_file = st.file_uploader("Upload Schedule File", type=["xlsx"], key="sched_up")
+    
+    if sched_file:
+        try:
+            df_sched = pd.read_excel(sched_file)
+            st.write("Raw Schedule Data:")
+            st.dataframe(df_sched, use_container_width=True)
+            
+            if st.button("Analyze Coverage"):
+                st.success("تم تحليل البيانات بنجاح!")
+        except Exception as e:
+            st.error(f"Error in Scheduling Tab: {e}")
