@@ -111,8 +111,7 @@ if check_auth():
         except: return str(t)
 
     # تعديل مسمى التابة هنا
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requirements", "🗓️ Scheduling", "⚖️ Net Staffing"])
-    
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requirements", "🗓️ Scheduling", "⚖️ Net Staffing"])    
     with tab1:
         with st.sidebar:
             st.header("⚙️ Configuration")
@@ -217,5 +216,6 @@ if check_auth():
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
 
 
