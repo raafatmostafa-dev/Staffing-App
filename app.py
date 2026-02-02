@@ -43,18 +43,15 @@ def check_auth():
 
     st.markdown("<h2 style='color: white; text-shadow: 2px 2px 4px #000000; text-align: center;'>🔒 WFM Secure Access</h2>", unsafe_allow_html=True)
     
-    # توسيط صندوق الدخول
     _, col, _ = st.columns([1, 1, 1])
     with col:
         st.markdown("""
             <style>
             div[data-testid="stVerticalBlock"] > div:has(input) {
-                background-color: rgba(30, 30, 30, 0.85); /* دارك مود شفاف */
+                background-color: rgba(255, 255, 255, 0.9);
                 padding: 30px;
                 border-radius: 15px;
-                border: 1px solid #444;
             }
-            label { color: white !important; }
             </style>
             """, unsafe_allow_html=True)
         
@@ -68,46 +65,49 @@ def check_auth():
                 st.error("❌ بيانات الدخول غير صحيحة")
     return False
 
-# --- 3. تشغيل التطبيق (الدارك مود الأساسي) ---
+# --- 3. تشغيل التطبيق بعد الدخول ---
 if check_auth():
-    # كود الـ CSS للدارك مود داخل السيستم
+    # كود الـ CSS (الدارك مود للعمود الجانبي فقط واللايت مود للباقي)
     st.markdown("""
         <style>
-        /* تغيير لون الخلفية الأساسي للداكن */
+        /* 1. جعل العمود الجانبي (Sidebar) دارك مود */
+        [data-testid="stSidebar"] {
+            background-color: #1E1E1E !important;
+            color: white !important;
+        }
+        [data-testid="stSidebar"] .stMarkdown p, [data-testid="stSidebar"] label {
+            color: #00FFCC !important; /* لون الخطوط داخل السايدبار */
+        }
+        [data-testid="stSidebar"] .stButton button {
+            background-color: #333;
+            color: white;
+            border: 1px solid #00FFCC;
+        }
+
+        /* 2. الحفاظ على باقي الصفحة لايت مود (أبيض) */
         .stApp {
-            background-color: #0E1117;
-            color: #E0E0E0;
-        }
-        /* تعديل كروت البيانات (Metrics) */
-        [data-testid="stMetricValue"] { font-size: 1.6rem !important; color: #00FFCC !important; }
-        [data-testid="stMetricLabel"] { font-size: 0.9rem !important; color: #AAAAAA !important; }
-        
-        /* تعديل شكل الـ Expander والجداول */
-        .stExpander {
-            background-color: #1A1C23 !important;
-            border: 1px solid #333 !important;
+            background-color: #FFFFFF;
         }
         
-        /* الهيدر الرئيسي */
+        /* 3. تنسيق الخطوط والمقاييس في الصفحة البيضاء */
+        [data-testid="stMetricValue"] { font-size: 1.5rem !important; color: #1E3A8A !important; }
+        [data-testid="stMetricLabel"] { font-size: 0.85rem !important; color: #444 !important; }
+        
         .main-header { 
-            font-size: 1.3rem; 
+            font-size: 1.2rem; 
             font-weight: bold; 
-            color: #00FFCC; 
+            color: #1E3A8A; 
             margin-bottom: 20px;
-            padding: 10px;
-            border-bottom: 2px solid #00FFCC;
+            border-bottom: 2px solid #EEEEEE;
+            padding-bottom: 10px;
         }
-        
-        /* تلوين التابات */
-        .stTabs [data-baseweb="tab"] { color: #AAAAAA; }
-        .stTabs [aria-selected="true"] { color: #00FFCC !important; border-bottom-color: #00FFCC !important; }
         </style>
         """, unsafe_allow_html=True)
 
     def color_net_staffing(val):
         try:
-            if val < 0: return 'background-color: #441111; color: #FF9999; font-weight: bold'
-            if val > 0: return 'background-color: #114411; color: #99FF99'
+            if val < 0: return 'background-color: #ffcccc; color: #900000; font-weight: bold'
+            if val > 0: return 'background-color: #ccffcc; color: #006600'
         except: pass
         return ''
 
@@ -142,7 +142,7 @@ if check_auth():
             df_all = pd.read_excel("data_last.xlsx", sheet_name=0)
             working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
             base_hrs_per_person = working_days * 8
-            st.markdown('<p class="main-header">🌍 Global Fleet Capacity Analysis (Dark View)</p>', unsafe_allow_html=True)
+            st.markdown('<p class="main-header">🌍 Global Fleet Capacity Analysis (Hybrid View)</p>', unsafe_allow_html=True)
 
             for _, row in df_all.iterrows():
                 lang_name = str(row.iloc[0]); target_workload_hrs = float(row.iloc[1])
@@ -153,7 +153,6 @@ if check_auth():
                 req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
                 hc_variance = actual_hc_count - req_hc
 
-                # عرض البيانات بنفس الفيو الأصلي
                 with st.expander(f"🚩 Language: {lang_name.upper()}", expanded=True):
                     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
                     c1.metric("Tgt Hrs", f"{int(target_workload_hrs):,}h")
@@ -165,7 +164,7 @@ if check_auth():
                     c7.metric("HC Gap", f"{int(hc_variance)}", delta=int(hc_variance))
             st.divider()
 
-    # --- TAB 2, 3, 4 (تكمل بنفس المنطق المعتاد) ---
+    # --- TAB 2, 3, 4 (تكمل بنفس المنطق المعتاد في الصفحة البيضاء) ---
     with tab2:
         if os.path.exists("intra_last.xlsx"):
             xls = pd.ExcelFile("intra_last.xlsx")
