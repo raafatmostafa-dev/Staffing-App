@@ -135,4 +135,35 @@ if check_password():
                 df_s = pd.read_excel("sched_last.xlsx", sheet_name=lang)
                 intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
                 df_s['Day'] = pd.to_datetime(df_s['Day'], errors='coerce')
-                target_dates = pd.date_range
+                target_dates = pd.date_range(start_date, end_date).strftime('%Y-%m-%d').tolist()
+                
+                cov_dict = {"Intervals": intervals}
+                for d_str in target_dates:
+                    day_df = df_s[df_s['Day'].dt.strftime('%Y-%m-%d') == d_str]
+                    counts = [0] * len(intervals)
+                    for i, slot in enumerate(intervals):
+                        slot_t = datetime.strptime(slot, '%H:%M').time()
+                        for _, r in day_df.iterrows():
+                            try:
+                                st_v = str(r['Start Time']).strip().upper()
+                                if st_v in ['OFF', 'NAN', '-', '']: continue
+                                st_t, en_t = pd.to_datetime(st_v).time(), pd.to_datetime(str(r['End Time'])).time()
+                                if (st_t <= slot_t < en_t) if st_t < en_t else (slot_t >= st_t or slot_t < en_t): counts[i] += 1
+                            except: continue
+                    cov_dict[d_str] = counts
+                st.session_state['df_cov'] = pd.DataFrame(cov_dict).set_index('Intervals').astype(int)
+                st.dataframe(st.session_state['df_cov'], use_container_width=True)
+            except: st.error(f"Sheet '{lang}' not found.")
+        else:
+            st.warning("⚠️ Please upload 'Schedules.xlsx' and select language in Intraday tab.")
+
+    # --- TAB 4: Net Staffing ---
+    with tab4:
+        if 'df_intra' in st.session_state and 'df_cov' in st.session_state:
+            st.subheader(f"⚖️ Efficiency: {st.session_state.get('active_lang')}")
+            d_intra = st.session_state['df_intra']
+            d_cov = st.session_state['df_cov'].reindex(d_intra.index).fillna(0).astype(int)
+            common_cols = [c for c in d_cov.columns if c in d_intra.columns]
+            if common_cols:
+                df_net = d_cov[common_cols] - d_intra[common_cols]
+                st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
