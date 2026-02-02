@@ -3,37 +3,34 @@ import pandas as pd
 import numpy as np
 from datetime import date, datetime, time
 import os
-import base64  # مكتبة جديدة هنحتاجها لتحويل الصورة
+import base64
 
 # --- 1. إعدادات الصفحة ---
 st.set_page_config(page_title="WFM Professional Suite", layout="wide")
 
-# دالة لتحويل الصورة المحلية لكود CSS
-def get_base64_of_bin_file(bin_file):
-    with open(bin_file, 'rb') as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
-
-def set_png_as_page_bg(bin_file):
-    bin_str = get_base64_of_bin_file(bin_file)
-    page_bg_img = '''
+# دالة تحويل الصورة لخلفية
+def set_bg_image(image_file):
+    with open(image_file, "rb") as f:
+        img_data = f.read()
+    b64_encoded = base64.b64encode(img_data).decode()
+    style = f"""
     <style>
-    .stApp {
-        background-image: url("data:image/png;base64,%s");
+    .stApp {{
+        background-image: url("data:image/png;base64,{b64_encoded}");
         background-size: cover;
         background-attachment: fixed;
-    }
-    /* تحسين شكل التابات عشان تبان فوق الخلفية */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: rgba(255, 255, 255, 0.8);
-        padding: 10px;
+    }}
+    /* جعل التابات والكونتينر واضحة فوق الخلفية */
+    [data-testid="stExpander"], [data-testid="stMetric"], .stTabs {{
+        background-color: rgba(255, 255, 255, 0.8) !important;
         border-radius: 10px;
-    }
+        padding: 10px;
+    }}
     </style>
-    ''' % bin_str
-    st.markdown(page_bg_img, unsafe_allow_html=True)
+    """
+    st.markdown(style, unsafe_allow_html=True)
 
-# دالة حفظ الملفات لضمان ثبات البيانات
+# دالة حفظ الملفات للثبات
 def save_file(uploaded_file, name):
     with open(name, "wb") as f:
         f.write(uploaded_file.getbuffer())
@@ -61,11 +58,11 @@ def check_auth():
 
 # --- 3. تشغيل التطبيق بعد الدخول ---
 if check_auth():
-    # استدعاء صورة الخلفية (تأكد من وجود صورة باسم background.jpg في فولدر الكود)
+    # استدعاء الخلفية لو الصورة موجودة
     if os.path.exists("background.jpg"):
-        set_png_as_page_bg('background.jpg')
+        set_bg_image("background.jpg")
 
-    # CSS بتاعك الأصلي لتصغير الخط
+    # CSS بتاعك الأصلي بدون تغيير
     st.markdown("""
         <style>
         [data-testid="stMetricValue"] { font-size: 1.5rem !important; }
@@ -74,15 +71,14 @@ if check_auth():
             font-size: 1.2rem; 
             font-weight: bold; 
             color: #1E3A8A; 
-            margin-bottom: 20px;
-            background-color: rgba(255, 255, 255, 0.7);
-            padding: 10px;
+            margin-bottom: 20px; 
+            background: rgba(255,255,255,0.7); 
+            padding: 5px; 
             border-radius: 5px;
         }
         </style>
         """, unsafe_allow_html=True)
 
-    # --- (باقي كودك بيكمل هنا زي ما هو بالظبط بدون تغيير) ---
     def color_net_staffing(val):
         try:
             if val < 0: return 'background-color: #ffcccc; color: #900000; font-weight: bold'
@@ -97,4 +93,100 @@ if check_auth():
 
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "⏰ Intraday", "🗓️ Scheduling", "⚖️ Net Staffing"])
 
-    # ... (كمل باقي الأقسام tab1, tab2, tab3, tab4 زي الكود القديم بتاعك)
+    with tab1:
+        with st.sidebar:
+            st.header("⚙️ Configuration")
+            d_range = st.date_input("Analysis Period", [date(2026, 2, 1), date(2026, 2, 28)])
+            start_date, end_date = d_range[0], (d_range[1] if len(d_range) > 1 else d_range[0])
+            
+            up_main = st.file_uploader("Upload Data.xlsx (Master)", type=["xlsx"])
+            if up_main: save_file(up_main, "data_last.xlsx")
+            
+            up_intra = st.file_uploader("Upload Required.xlsx", type=["xlsx"])
+            if up_intra: save_file(up_intra, "intra_last.xlsx")
+            
+            up_sched = st.file_uploader("Upload Schedules.xlsx", type=["xlsx"])
+            if up_sched: save_file(up_sched, "sched_last.xlsx")
+            
+            if st.button("Logout"):
+                st.session_state["authenticated"] = False
+                st.rerun()
+
+        if os.path.exists("data_last.xlsx"):
+            df_all = pd.read_excel("data_last.xlsx", sheet_name=0)
+            working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
+            base_hrs_per_person = working_days * 8
+            st.markdown('<p class="main-header">🌍 Global Fleet Capacity Analysis (All Languages)</p>', unsafe_allow_html=True)
+
+            for _, row in df_all.iterrows():
+                lang_name = str(row.iloc[0]); target_workload_hrs = float(row.iloc[1])
+                actual_hc_count = float(row.iloc[2]); shrink_val = float(row.iloc[3])
+                shrink_p = shrink_val / 100 if shrink_val > 1 else shrink_val 
+                actual_available_hrs = (actual_hc_count * base_hrs_per_person) * (1 - shrink_p)
+                hrs_variance = actual_available_hrs - target_workload_hrs
+                req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
+                hc_variance = actual_hc_count - req_hc
+
+                with st.expander(f"🚩 Language: {lang_name.upper()}", expanded=True):
+                    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
+                    c1.metric("Tgt Hrs", f"{int(target_workload_hrs):,}h")
+                    c2.metric("Act Hrs", f"{int(actual_available_hrs):,}h")
+                    c3.metric("Hrs Var", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
+                    c4.metric("Shrink %", f"{shrink_p*100:.1f}%")
+                    c5.metric("Req HC", f"{int(req_hc)}")
+                    c6.metric("Act HC", f"{int(actual_hc_count)}")
+                    c7.metric("HC Gap", f"{int(hc_variance)}", delta=int(hc_variance))
+            st.divider()
+
+    with tab2:
+        if os.path.exists("intra_last.xlsx"):
+            xls = pd.ExcelFile("intra_last.xlsx")
+            avail_langs = [s for s in xls.sheet_names if "Sheet" not in s]
+            op_lang = st.selectbox("🎯 Select Language", avail_langs, key="op_filter")
+            st.session_state['active_lang'] = op_lang
+            df_raw = pd.read_excel("intra_last.xlsx", sheet_name=op_lang, header=None)
+            if not df_raw.empty:
+                new_cols = ["Intervals"] + [pd.to_datetime(d).strftime('%Y-%m-%d') for d in df_raw.iloc[0, 1:]]
+                df_intra = df_raw.drop(0).copy()
+                df_intra.columns = new_cols
+                df_intra['Intervals'] = df_intra['Intervals'].apply(format_time_index)
+                st.session_state['df_intra'] = df_intra.set_index('Intervals').apply(pd.to_numeric, errors='coerce').fillna(0).round(0).astype(int)
+                st.dataframe(st.session_state['df_intra'], use_container_width=True)
+
+    with tab3:
+        lang = st.session_state.get('active_lang')
+        if os.path.exists("sched_last.xlsx") and lang:
+            st.subheader(f"🗓️ Staff Coverage: {lang}")
+            try:
+                df_s = pd.read_excel("sched_last.xlsx", sheet_name=lang)
+                intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
+                df_s['Day'] = pd.to_datetime(df_s['Day'], errors='coerce')
+                target_dates = pd.date_range(start_date, end_date).strftime('%Y-%m-%d').tolist()
+                cov_dict = {"Intervals": intervals}
+                for d_str in target_dates:
+                    day_df = df_s[df_s['Day'].dt.strftime('%Y-%m-%d') == d_str]
+                    counts = [0] * len(intervals)
+                    for i, slot in enumerate(intervals):
+                        slot_t = datetime.strptime(slot, '%H:%M').time()
+                        for _, r in day_df.iterrows():
+                            try:
+                                st_v = str(r['Start Time']).strip().upper()
+                                if st_v in ['OFF', 'NAN', '-', '']: continue
+                                st_t, en_t = pd.to_datetime(st_v).time(), pd.to_datetime(str(r['End Time'])).time()
+                                if (st_t <= slot_t < en_t) if st_t < en_t else (slot_t >= st_t or slot_t < en_t): counts[i] += 1
+                            except: continue
+                    cov_dict[d_str] = counts
+                st.session_state['df_cov'] = pd.DataFrame(cov_dict).set_index('Intervals').astype(int)
+                st.dataframe(st.session_state['df_cov'], use_container_width=True)
+            except: st.error(f"Sheet '{lang}' not found.")
+
+    with tab4:
+        lang = st.session_state.get('active_lang')
+        if 'df_intra' in st.session_state and 'df_cov' in st.session_state:
+            st.subheader(f"⚖️ Efficiency Analysis: {lang}")
+            d_intra = st.session_state['df_intra']
+            d_cov = st.session_state['df_cov'].reindex(d_intra.index).fillna(0).astype(int)
+            common_cols = [c for c in d_cov.columns if c in d_intra.columns]
+            if common_cols:
+                df_net = d_cov[common_cols] - d_intra[common_cols]
+                st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
