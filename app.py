@@ -80,7 +80,7 @@ if check_auth():
         }
         [data-testid="stSidebar"] .stButton button {
             background-color: #333;
-            color: white;
+            color: black;
             border: 1px solid #00FFCC;
         }
 
@@ -217,3 +217,4 @@ if check_auth():
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
