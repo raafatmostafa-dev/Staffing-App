@@ -6,14 +6,14 @@ from datetime import date, datetime
 # إعدادات الصفحة
 st.set_page_config(page_title="WFM Professional Suite", layout="wide")
 
-# --- دالة التلوين لجدول المقارنة ---
+# --- دالة التلوين الديناميكي لتابة المقارنة ---
 def color_net_staffing(val):
     if isinstance(val, (int, float)):
-        if val < 0: return 'background-color: #ffcccc; color: #990000' # أحمر للعجز
-        if val > 0: return 'background-color: #ccffcc; color: #006600' # أخضر للزيادة
+        if val < 0: return 'background-color: #ffcccc; color: #900000; font-weight: bold' # عجز (أحمر)
+        if val > 0: return 'background-color: #ccffcc; color: #006600' # زيادة (أخضر)
     return ''
 
-# --- الواجهة (Tabs) ---
+# --- واجهة التبويبات ---
 tab1, tab2, tab3, tab4 = st.tabs([
     "📊 Capacity Planning", 
     "⏰ Intraday Requirements", 
@@ -22,7 +22,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: CAPACITY PLANNING
+# TAB 1: CAPACITY PLANNING (قراءة البيانات من التابات)
 # ---------------------------------------------------------
 with tab1:
     st.subheader("Monthly Capacity Analysis")
@@ -37,110 +37,116 @@ with tab1:
 
     if main_file:
         xls_cap = pd.ExcelFile(main_file)
-        sel_lang = st.selectbox("Select Language (Sheet)", xls_cap.sheet_names)
+        sel_lang = st.selectbox("Select Language (Sheet)", xls_cap.sheet_names, key="cap_lang")
         df_cap = pd.read_excel(main_file, sheet_name=sel_lang)
         df_cap.columns = [str(c).strip().lower() for c in df_cap.columns]
         
-        # البحث عن الأعمدة
+        # البحث الديناميكي عن الأعمدة
         col_t = next((c for c in df_cap.columns if 'target' in c), None)
         col_a = next((c for c in df_cap.columns if 'actual' in c), None)
         col_s = next((c for c in df_cap.columns if 'shrink' in c), None)
 
-        if col_t and col_a and col_s:
+        if all([col_t, col_a, col_s]):
             row = df_cap.iloc[0]
-            shrink_p = float(row[col_s]) if float(row[col_s]) < 1 else float(row[col_s])/100
+            shrink_val = float(row[col_s])
+            shrink_p = shrink_val if shrink_val < 1 else shrink_val / 100
             n_cap = base_hours * (1 - shrink_p)
             req_hc = np.ceil(float(row[col_t]) / n_cap) if n_cap > 0 else 0
             
             c1, c2, c3 = st.columns(3)
             c1.metric("Target Hours", f"{int(row[col_t])}h")
             c2.metric("Required HC", int(req_hc))
-            c3.metric("Gap", int(float(row[col_a]) - req_hc), delta=int(float(row[col_a]) - req_hc))
+            c3.metric("HC Variance", int(float(row[col_a]) - req_hc), delta=int(float(row[col_a]) - req_hc))
 
 # ---------------------------------------------------------
-# TAB 2: INTRADAY REQUIREMENTS
+# TAB 2: INTRADAY REQUIREMENTS (إصلاح الهيدر والتواريخ)
 # ---------------------------------------------------------
 with tab2:
     st.subheader("Half-Hour Interval Requirements")
     intraday_file = st.file_uploader("Upload Required.xlsx", type=["xlsx"], key="int_up")
     if intraday_file:
         xls_int = pd.ExcelFile(intraday_file)
-        lang_int = st.selectbox("Select Language (Intraday)", xls_int.sheet_names)
+        lang_int = st.selectbox("Select Language (Intraday)", xls_int.sheet_names, key="int_lang")
+        # قراءة بدون هيدر للتحكم في التواريخ
         df_raw = pd.read_excel(intraday_file, sheet_name=lang_int, header=None)
         
-        # معالجة التواريخ في الهيدر
+        # استخراج التواريخ من الصف الأول وتنظيفها
         h_row = df_raw.iloc[0].values
         new_cols = ["Intervals"]
         for i, v in enumerate(h_row[1:], 1):
             try: new_cols.append(pd.to_datetime(v).strftime('%Y-%m-%d'))
-            except: new_cols.append(f"Col_{i}")
+            except: new_cols.append(str(v))
         
         df_intra = df_raw.drop(0).copy()
         df_intra.columns = new_cols
+        # تنظيف عمود الوقت من تاريخ 1970
         df_intra['Intervals'] = pd.to_datetime(df_intra['Intervals'], errors='coerce').dt.strftime('%H:%M')
-        # تخزين في الـ session لمشاركتها مع التابة الرابعة
-        st.session_state['df_intra'] = df_intra.fillna(0)
+        
+        st.session_state['df_intra'] = df_intra.fillna(0).set_index('Intervals')
         st.dataframe(st.session_state['df_intra'], use_container_width=True)
 
 # ---------------------------------------------------------
-# TAB 3: SCHEDULING
+# TAB 3: SCHEDULING (تحويل المواعيد النصية إلى أرقام تغطية)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("Staffing Coverage Calculation")
     sched_file = st.file_uploader("Upload Schedules.xlsx", type=["xlsx"], key="sch_up")
     if sched_file:
         xls_sch = pd.ExcelFile(sched_file)
-        lang_sch = st.selectbox("Select Language (Schedule)", xls_sch.sheet_names)
+        lang_sch = st.selectbox("Select Language (Schedule)", xls_sch.sheet_names, key="sch_lang")
         df_s = pd.read_excel(sched_file, sheet_name=lang_sch)
         
-        # تحويل المواعيد لأرقام
-        intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
-        df_s['Day'] = pd.to_datetime(df_s['Day'], errors='coerce')
-        u_days = sorted(df_s['Day'].dropna().unique())
-        
-        cov_dict = {"Intervals": intervals}
-        for d in u_days:
-            d_str = pd.to_datetime(d).strftime('%Y-%m-%d')
-            day_df = df_s[df_s['Day'] == d]
-            counts = []
-            for slot in intervals:
-                slot_t = datetime.strptime(slot, '%H:%M').time()
-                c = 0
-                for _, r in day_df.iterrows():
-                    try:
-                        if str(r['Start Time']).upper() == 'OFF': continue
-                        st_t = pd.to_datetime(r['Start Time']).time()
-                        en_t = pd.to_datetime(r['End Time']).time()
-                        if st_t <= slot_t < en_t: c += 1
-                    except: continue
-                counts.append(c)
-            cov_dict[d_str] = counts
-        
-        st.session_state['df_cov'] = pd.DataFrame(cov_dict)
-        st.dataframe(st.session_state['df_cov'], use_container_width=True)
+        if not df_s.empty:
+            # إنشاء قائمة الفترات الزمنية (كل نص ساعة)
+            intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
+            df_s['Day'] = pd.to_datetime(df_s['Day'], errors='coerce')
+            u_days = sorted(df_s['Day'].dropna().unique())
+            
+            cov_dict = {"Intervals": intervals}
+            for d in u_days:
+                d_str = pd.to_datetime(d).strftime('%Y-%m-%d')
+                day_df = df_s[df_s['Day'] == d]
+                counts = []
+                for slot in intervals:
+                    slot_t = datetime.strptime(slot, '%H:%M').time()
+                    c = 0
+                    for _, r in day_df.iterrows():
+                        try:
+                            # تجاهل الـ OFF وتحويل النص لوقت حقيقي
+                            s_val = str(r['Start Time']).strip().upper()
+                            e_val = str(r['End Time']).strip().upper()
+                            if s_val == 'OFF' or s_val == 'NAN': continue
+                            
+                            st_t = pd.to_datetime(s_val).time()
+                            en_t = pd.to_datetime(e_val).time()
+                            if st_t <= slot_t < en_t: c += 1
+                        except: continue
+                    counts.append(c)
+                cov_dict[d_str] = counts
+            
+            st.session_state['df_cov'] = pd.DataFrame(cov_dict).set_index('Intervals')
+            st.success(f"Calculated numeric coverage for {lang_sch}")
+            st.dataframe(st.session_state['df_cov'], use_container_width=True)
 
 # ---------------------------------------------------------
-# TAB 4: NET STAFFING (المقارنة)
+# TAB 4: NET STAFFING (تحليل العجز والزيادة بالألوان)
 # ---------------------------------------------------------
 with tab4:
-    st.subheader("Gap Analysis (Manned vs Required)")
+    st.subheader("Net Staffing Analysis (Gap)")
     if 'df_intra' in st.session_state and 'df_cov' in st.session_state:
-        d_intra = st.session_state['df_intra']
-        d_cov = st.session_state['df_cov']
+        # إيجاد الأيام المشتركة لضمان دقة الحساب
+        common_cols = [c for c in st.session_state['df_cov'].columns if c in st.session_state['df_intra'].columns]
         
-        # إيجاد الأيام المشتركة بين الجدولين
-        common_days = [c for c in d_cov.columns if c in d_intra.columns and c != 'Intervals']
-        
-        if common_days:
-            df_net = pd.DataFrame({"Intervals": d_cov['Intervals']})
-            for day in common_days:
-                # طرح (السكادول - الريكوايرد)
-                df_net[day] = d_cov[day].astype(float) - d_intra[day].astype(float)
+        if common_cols:
+            # العملية الحسابية: (المتاح في السكادول) - (المطلوب في الريكوايرد)
+            df_net = st.session_state['df_cov'][common_cols].astype(float) - st.session_state['df_intra'][common_cols].astype(float)
             
-            # تطبيق التلوين
-            st.write("🔴 أحمر: عجز | 🟢 أخضر: زيادة")
-            st.dataframe(df_net.style.applymap(color_net_staffing, subset=common_days), use_container_width=True)
+            st.write("### 🔴 Red = Understaffed | 🟢 Green = Overstaffed")
+            st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+            
+            # رسم بياني توضيحي لأول يوم متاح
+            st.line_chart(df_net[common_cols[0]])
         else:
-            st.warning("⚠️ لا توجد تواريخ متطابقة بين الملفين المرفوعين.")
+            st.warning("⚠️ No matching dates found between Intraday and Schedule files.")
     else:
-        st.info("💡 يرجى رفع ملفات Intraday و Scheduling أولاً لتظهر المقارنة.")
+        st.info("💡 Please upload Required and Schedule files in their respective tabs first.")
