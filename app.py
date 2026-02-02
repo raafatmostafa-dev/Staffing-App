@@ -3,24 +3,25 @@ import pandas as pd
 import numpy as np
 from datetime import date
 
-st.set_page_config(page_title="Custom Language Staffing", layout="wide")
+st.set_page_config(page_title="Workforce Planner", layout="wide")
 
-st.title("📊 Language-Specific Workforce Analysis")
+st.title("📊 Language-Based Workforce Analysis")
 
-# --- 1. إعدادات الوقت (F3, F4) ---
-st.sidebar.header("🗓️ Monthly Period (NETWORKDAYS)")
+# --- 1. إعدادات الوقت (NETWORKDAYS) ---
+st.sidebar.header("🗓️ Monthly Period")
 start_date = st.sidebar.date_input("Start Date (F3)", date(2024, 1, 1))
 end_date = st.sidebar.date_input("End Date (F4)", date(2024, 1, 31))
 
-# حساب أيام العمل
+# حساب أيام العمل الفعلية
 start_np = np.datetime64(start_date, 'D')
 end_np = np.datetime64(end_date, 'D') + np.timedelta64(1, 'D')
 working_days = np.busday_count(start_np, end_np)
 total_hours_month = working_days * 8
 
-st.sidebar.info(f"إجمالي ساعات العمل المتاحة (100%): {total_hours_month} ساعة")
+st.sidebar.info(f"Working Days: {working_days}")
+st.sidebar.info(f"Total Hours/Month: {total_hours_month}")
 
-uploaded_file = st.file_uploader("Upload Your Sheet", type=["xlsx", "csv"])
+uploaded_file = st.file_uploader("Upload Your Excel Sheet", type=["xlsx", "csv"])
 
 if uploaded_file:
     try:
@@ -30,36 +31,76 @@ if uploaded_file:
         else:
             df = pd.read_csv(uploaded_file, encoding='cp1256')
         
+        # تنظيف أسماء الأعمدة
         df.columns = [str(c).strip().lower() for c in df.columns]
         
-        # البحث عن الأعمدة
+        # البحث عن الأعمدة الأساسية
         col_lang = next((c for c in df.columns if 'lang' in c or 'لغة' in c), None)
         col_target = next((c for c in df.columns if 'target' in c or 'hour' in c or 'مطلوب' in c), None)
-        col_actual_hc = next((c for c in df.columns if 'actual' in c or 'hc' in c or 'فعلي' in c), None)
+        col_actual = next((c for c in df.columns if 'actual' in c or 'hc' in c or 'فعلي' in c), None)
+        col_shr = next((c for c in df.columns if 'shrink' in c or 'شرينك' in c), None)
 
         if col_lang and col_target:
             # تجميع البيانات لكل لغة
-            summary = df.groupby(col_lang).agg({
-                col_target: 'sum',
-                col_actual_hc: 'max' if col_actual_hc else lambda x: 0
-            }).reset_index()
-            summary.columns = ['Language', 'Total Target Hours', 'Actual HC']
-
-            st.subheader("📝 Calculations per Language")
+            agg_dict = {col_target: 'sum'}
+            if col_actual: agg_dict[col_actual] = 'max'
+            if col_shr: agg_dict[col_shr] = 'max'
             
+            summary = df.groupby(col_lang).agg(agg_dict).reset_index()
+            
+            st.subheader("📝 Analysis per Language")
             final_report = []
+
             for _, row in summary.iterrows():
-                with st.expander(f"⚙️ Settings for {row['Language']}", expanded=True):
-                    col1, col2, col3 = st.columns(3)
+                lang_name = str(row[col_lang])
+                with st.expander(f"Analysis for: {lang_name}", expanded=True):
+                    c1, c2, c3 = st.columns(3)
                     
-                    # 1. إدخال الشرينكيدج لكل لغة لوحدها
-                    lang_shrinkage = col1.number_input(f"Shrinkage % for {row['Language']}", value=20.0, step=1.0, key=f"shr_{row['Language']}") / 100
+                    # سحب القيم من الشيت أو وضع قيم افتراضية
+                    initial_hc = float(row[col_actual]) if col_actual else 0.0
+                    initial_shr = float(row[col_shr]) if col_shr else 20.0
                     
-                    # 2. الهيد كاونت (يسحب من الشيت أو تدخله لو 0)
-                    actual_hc = col2.number_input(f"Actual Headcount ({row['Language']})", value=float(row['Actual HC']), key=f"hc_{row['Language']}")
+                    # مدخلات لكل لغة
+                    actual_hc = c1.number_input(f"Actual HC ({lang_name})", value=initial_hc, key=f"hc_{lang_name}")
+                    shrink_val = c2.number_input(f"Shrinkage % ({lang_name})", value=initial_shr, key=f"sh_{lang_name}") / 100
                     
-                    # --- تطبيق معادلاتك ---
-                    # سعة الموظف بعد الشرينكيدج الخاص باللغة
-                    lang_net_capacity = total_hours_month * (1 - lang_shrinkage)
+                    # --- المعادلات المطلوبة ---
+                    # 1. سعة الموظف = (أيام العمل * 8) * (1 - شرينكيدج اللغة)
+                    lang_cap = total_hours_month * (1 - shrink_val)
                     
-                    # المطلوب =
+                    # 2. المطلوب = التارجت هاورز / سعة الموظف
+                    target_hrs = row[col_target]
+                    req_hc = np.ceil(target_hrs / lang_cap) if lang_cap > 0 else 0
+                    
+                    # 3. الفارق (بناءً على كلامك: الفعلي - المطلوب)
+                    variance_hc = actual_hc - req_hc
+                    
+                    # 4. الساعات الفعلية المتاحة بناءً على الهيد كاونت اللي إنت حاطه
+                    avail_hrs = actual_hc * lang_cap
+                    
+                    c3.metric("Required HC", int(req_hc))
+                    
+                    st.write(f"**Target:** {round(target_hrs,1)} hrs | **Available:** {round(avail_hrs,1)} hrs")
+                    
+                    if variance_hc < 0:
+                        st.error(f"🔴 Shortage of {abs(int(variance_hc))} agents")
+                    else:
+                        st.success(f"🟢 Surplus of {int(variance_hc)} agents")
+                        
+                    final_report.append({
+                        "Language": lang_name,
+                        "Target Hours": round(target_hrs, 1),
+                        "Actual HC": int(actual_hc),
+                        "Required HC": int(req_hc),
+                        "Variance (HC)": int(variance_hc)
+                    })
+
+            st.divider()
+            st.subheader("📊 Final Summary Table")
+            st.table(pd.DataFrame(final_report))
+            
+        else:
+            st.error("❌ الملف ناقص! لازم يكون فيه أعمدة (Language) و (Hours/Target)")
+
+    except Exception as e:
+        st.error(f"Error in Processing: {e}")
