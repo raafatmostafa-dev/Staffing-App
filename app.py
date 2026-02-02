@@ -12,7 +12,7 @@ def color_net_staffing(val):
         if val > 0: return 'background-color: #ccffcc; color: #006600'
     return ''
 
-# --- التبويبات الأربعة ---
+# --- التبويبات ---
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity", "⏰ Intraday", "🗓️ Scheduling", "⚖️ Net Staffing"])
 
 # ---------------------------------------------------------
@@ -29,7 +29,7 @@ with tab1:
         st.success(f"Language {sel_lang} Loaded")
 
 # ---------------------------------------------------------
-# TAB 2: INTRADAY (عرض البيانات المفقودة)
+# TAB 2: INTRADAY (إصلاح مشكلة الشرطات "-" والبيانات المختفية)
 # ---------------------------------------------------------
 with tab2:
     st.subheader("Half-Hour Interval Requirements")
@@ -37,10 +37,10 @@ with tab2:
     if intra_file:
         xls_int = pd.ExcelFile(intra_file)
         lang_int = st.selectbox("Select Language (Intraday)", xls_int.sheet_names)
-        # قراءة البيانات الخام بدون هيدر للتحكم الكامل
-        df_raw = pd.read_excel(intra_file, sheet_name=lang_int, header=None)
+        # قراءة الداتا مع اعتبار الشرطة NaN عشان نقدر نحولها لصفر
+        df_raw = pd.read_excel(intra_file, sheet_name=lang_int, header=None, na_values=['-'])
         
-        # استخراج التواريخ للهيدر
+        # معالجة الهيدر (التواريخ)
         h_row = df_raw.iloc[0].values
         new_cols = ["Intervals"]
         for v in h_row[1:]:
@@ -50,14 +50,15 @@ with tab2:
         df_intra = df_raw.drop(0).copy()
         df_intra.columns = new_cols
         
-        # ضمان تحويل الـ Intervals لنص HH:MM نقي جداً
+        # تنظيف الوقت وإجبار البيانات تبقى أرقام
         df_intra['Intervals'] = pd.to_datetime(df_intra['Intervals'], errors='coerce').dt.strftime('%H:%M')
         df_intra = df_intra.dropna(subset=['Intervals'])
         
-        # تخزين في الـ session لضمان التوفر في تابة المقارنة
-        st.session_state['df_intra'] = df_intra.set_index('Intervals').apply(pd.to_numeric, errors='coerce').fillna(0)
+        # تحويل كل الخلايا لأرقام (الشرطات هتبقى 0)
+        final_intra = df_intra.set_index('Intervals').apply(pd.to_numeric, errors='coerce').fillna(0)
+        st.session_state['df_intra'] = final_intra
         
-        st.write("🔍 **Requirements Data:**")
+        st.write("✅ **Data Loaded Successfully:**")
         st.dataframe(st.session_state['df_intra'], use_container_width=True)
 
 # ---------------------------------------------------------
@@ -71,7 +72,7 @@ with tab3:
         lang_sch = st.selectbox("Select Language (Schedule)", xls_sch.sheet_names)
         df_s = pd.read_excel(sched_file, sheet_name=lang_sch)
         
-        # إنشاء قائمة Intervals نصية ثابتة
+        # قائمة فترات نصية HH:MM
         intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
         df_s['Day'] = pd.to_datetime(df_s['Day'], errors='coerce')
         u_days = sorted(df_s['Day'].dropna().unique())
@@ -86,10 +87,8 @@ with tab3:
                 c = 0
                 for _, r in day_df.iterrows():
                     try:
-                        # تجاهل الـ OFF ومعالجة الوقت
-                        s_val = str(r['Start Time']).strip().upper()
-                        if s_val in ['OFF', 'NAN']: continue
-                        st_t = pd.to_datetime(s_val).time()
+                        if str(r['Start Time']).upper() in ['OFF', 'NAN']: continue
+                        st_t = pd.to_datetime(str(r['Start Time'])).time()
                         en_t = pd.to_datetime(str(r['End Time'])).time()
                         if st_t <= slot_t < en_t: c += 1
                     except: continue
@@ -97,11 +96,10 @@ with tab3:
             cov_dict[d_str] = counts
             
         st.session_state['df_cov'] = pd.DataFrame(cov_dict).set_index('Intervals')
-        st.write("🔍 **Scheduled Coverage:**")
         st.dataframe(st.session_state['df_cov'], use_container_width=True)
 
 # ---------------------------------------------------------
-# TAB 4: NET STAFFING (حل الـ NameError واختفاء البيانات)
+# TAB 4: NET STAFFING (المقارنة النهائية)
 # ---------------------------------------------------------
 with tab4:
     st.subheader("Net Staffing Analysis (Gap)")
@@ -109,23 +107,19 @@ with tab4:
         d_intra = st.session_state['df_intra']
         d_cov = st.session_state['df_cov']
         
-        # تعريف common_cols قبل الاستخدام
+        # إيجاد الأيام المشتركة وتوحيد الجداول
         common_cols = [c for c in d_cov.columns if c in d_intra.columns]
         
         if common_cols:
-            # توحيد الـ Index بين الجدولين قسرياً لضمان الطرح
             d_cov_aligned = d_cov.reindex(d_intra.index).fillna(0)
+            df_net = d_cov_aligned[common_cols] - d_intra[common_cols]
             
-            # طرح (المتاح - المطلوب)
-            df_net = d_cov_aligned[common_cols].astype(float) - d_intra[common_cols].astype(float)
-            
-            st.write("✅ **Net Results (Coverage - Required):**")
+            st.write("🔴 أحمر = عجز (نقص موظفين) | 🟢 أخضر = زيادة")
             st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
             
-            # زر التحميل
             csv = df_net.to_csv().encode('utf-8')
-            st.download_button("📥 Download Net Staffing Report", csv, "net_staffing.csv", "text/csv")
+            st.download_button("📥 Download Report", csv, "gap_analysis.csv", "text/csv")
         else:
-            st.warning("⚠️ No matching dates found between files.")
+            st.warning("⚠️ No matching dates found.")
     else:
         st.info("💡 Please upload Required and Schedule files first.")
