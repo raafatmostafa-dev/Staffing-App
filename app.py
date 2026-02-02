@@ -8,27 +8,22 @@ import base64
 # --- 1. إعدادات الصفحة ---
 st.set_page_config(page_title="WFM Professional Suite", layout="wide")
 
-# دالة تحويل الصورة لخلفية
+# دالة تحويل الصورة لخلفية (هتستدعى في الشاشة الخارجية بس)
 def set_bg_image(image_file):
-    with open(image_file, "rb") as f:
-        img_data = f.read()
-    b64_encoded = base64.b64encode(img_data).decode()
-    style = f"""
-    <style>
-    .stApp {{
-        background-image: url("data:image/png;base64,{b64_encoded}");
-        background-size: cover;
-        background-attachment: fixed;
-    }}
-    /* جعل التابات والكونتينر واضحة فوق الخلفية */
-    [data-testid="stExpander"], [data-testid="stMetric"], .stTabs {{
-        background-color: rgba(255, 255, 255, 0.8) !important;
-        border-radius: 10px;
-        padding: 10px;
-    }}
-    </style>
-    """
-    st.markdown(style, unsafe_allow_html=True)
+    if os.path.exists(image_file):
+        with open(image_file, "rb") as f:
+            img_data = f.read()
+        b64_encoded = base64.b64encode(img_data).decode()
+        style = f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/png;base64,{b64_encoded}");
+            background-size: cover;
+            background-attachment: fixed;
+        }}
+        </style>
+        """
+        st.markdown(style, unsafe_allow_html=True)
 
 # دالة حفظ الملفات للثبات
 def save_file(uploaded_file, name):
@@ -43,9 +38,23 @@ def check_auth():
     if st.session_state["authenticated"]:
         return True
 
-    st.markdown("### 🔒 WFM Secure Access")
+    # --- وضع الصورة في شاشة تسجيل الدخول فقط ---
+    set_bg_image("background.jpg")
+
+    st.markdown("<h2 style='color: white; text-shadow: 2px 2px 4px #000000;'>🔒 WFM Secure Access</h2>", unsafe_allow_html=True)
     col1, _ = st.columns([1, 2])
     with col1:
+        # حاوية شفافة لليوزر والباسورد عشان يبانوا فوق الصورة
+        st.markdown("""
+            <style>
+            div[data-testid="stVerticalBlock"] > div:has(input) {
+                background-color: rgba(255, 255, 255, 0.9);
+                padding: 20px;
+                border-radius: 10px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+        
         user = st.text_input("Username")
         pw = st.text_input("Password", type="password")
         if st.button("Login"):
@@ -56,12 +65,8 @@ def check_auth():
                 st.error("❌ بيانات الدخول غير صحيحة")
     return False
 
-# --- 3. تشغيل التطبيق بعد الدخول ---
+# --- 3. تشغيل التطبيق بعد الدخول (الخلفية هنا هتبقى بيضاء تلقائياً) ---
 if check_auth():
-    # استدعاء الخلفية لو الصورة موجودة
-    if os.path.exists("background.jpg"):
-        set_bg_image("background.jpg")
-
     # CSS بتاعك الأصلي بدون تغيير
     st.markdown("""
         <style>
@@ -72,9 +77,6 @@ if check_auth():
             font-weight: bold; 
             color: #1E3A8A; 
             margin-bottom: 20px; 
-            background: rgba(255,255,255,0.7); 
-            padding: 5px; 
-            border-radius: 5px;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -137,7 +139,10 @@ if check_auth():
                     c6.metric("Act HC", f"{int(actual_hc_count)}")
                     c7.metric("HC Gap", f"{int(hc_variance)}", delta=int(hc_variance))
             st.divider()
+        else:
+            st.info("👋 يرجى رفع ملف 'Data.xlsx' لأول مرة لتثبيت البيانات.")
 
+    # --- TAB 2, 3, 4 تظل كما هي بنفس المنطق المعتاد ---
     with tab2:
         if os.path.exists("intra_last.xlsx"):
             xls = pd.ExcelFile("intra_last.xlsx")
