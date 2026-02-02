@@ -8,7 +8,7 @@ import base64
 # --- 1. إعدادات الصفحة ---
 st.set_page_config(page_title="WFM Professional Suite", layout="wide")
 
-# دالة تحويل الصورة لخلفية (هتستدعى في الشاشة الخارجية بس)
+# دالة تحويل الصورة لخلفية (لشاشة الدخول فقط)
 def set_bg_image(image_file):
     if os.path.exists(image_file):
         with open(image_file, "rb") as f:
@@ -38,26 +38,29 @@ def check_auth():
     if st.session_state["authenticated"]:
         return True
 
-    # --- وضع الصورة في شاشة تسجيل الدخول فقط ---
+    # وضع الخلفية في شاشة الـ Login فقط
     set_bg_image("background.jpg")
 
-    st.markdown("<h2 style='color: white; text-shadow: 2px 2px 4px #000000;'>🔒 WFM Secure Access</h2>", unsafe_allow_html=True)
-    col1, _ = st.columns([1, 2])
-    with col1:
-        # حاوية شفافة لليوزر والباسورد عشان يبانوا فوق الصورة
+    st.markdown("<h2 style='color: white; text-shadow: 2px 2px 4px #000000; text-align: center;'>🔒 WFM Secure Access</h2>", unsafe_allow_html=True)
+    
+    # توسيط صندوق الدخول
+    _, col, _ = st.columns([1, 1, 1])
+    with col:
         st.markdown("""
             <style>
             div[data-testid="stVerticalBlock"] > div:has(input) {
-                background-color: rgba(255, 255, 255, 0.9);
-                padding: 20px;
-                border-radius: 10px;
+                background-color: rgba(30, 30, 30, 0.85); /* دارك مود شفاف */
+                padding: 30px;
+                border-radius: 15px;
+                border: 1px solid #444;
             }
+            label { color: white !important; }
             </style>
             """, unsafe_allow_html=True)
         
         user = st.text_input("Username")
         pw = st.text_input("Password", type="password")
-        if st.button("Login"):
+        if st.button("Login", use_container_width=True):
             if user == "Raafat Mostafa" and pw == "Rr#01010353831": 
                 st.session_state["authenticated"] = True
                 st.rerun() 
@@ -65,26 +68,46 @@ def check_auth():
                 st.error("❌ بيانات الدخول غير صحيحة")
     return False
 
-# --- 3. تشغيل التطبيق بعد الدخول (الخلفية هنا هتبقى بيضاء تلقائياً) ---
+# --- 3. تشغيل التطبيق (الدارك مود الأساسي) ---
 if check_auth():
-    # CSS بتاعك الأصلي بدون تغيير
+    # كود الـ CSS للدارك مود داخل السيستم
     st.markdown("""
         <style>
-        [data-testid="stMetricValue"] { font-size: 1.5rem !important; }
-        [data-testid="stMetricLabel"] { font-size: 0.85rem !important; }
-        .main-header { 
-            font-size: 1.2rem; 
-            font-weight: bold; 
-            color: #1E3A8A; 
-            margin-bottom: 20px; 
+        /* تغيير لون الخلفية الأساسي للداكن */
+        .stApp {
+            background-color: #0E1117;
+            color: #E0E0E0;
         }
+        /* تعديل كروت البيانات (Metrics) */
+        [data-testid="stMetricValue"] { font-size: 1.6rem !important; color: #00FFCC !important; }
+        [data-testid="stMetricLabel"] { font-size: 0.9rem !important; color: #AAAAAA !important; }
+        
+        /* تعديل شكل الـ Expander والجداول */
+        .stExpander {
+            background-color: #1A1C23 !important;
+            border: 1px solid #333 !important;
+        }
+        
+        /* الهيدر الرئيسي */
+        .main-header { 
+            font-size: 1.3rem; 
+            font-weight: bold; 
+            color: #00FFCC; 
+            margin-bottom: 20px;
+            padding: 10px;
+            border-bottom: 2px solid #00FFCC;
+        }
+        
+        /* تلوين التابات */
+        .stTabs [data-baseweb="tab"] { color: #AAAAAA; }
+        .stTabs [aria-selected="true"] { color: #00FFCC !important; border-bottom-color: #00FFCC !important; }
         </style>
         """, unsafe_allow_html=True)
 
     def color_net_staffing(val):
         try:
-            if val < 0: return 'background-color: #ffcccc; color: #900000; font-weight: bold'
-            if val > 0: return 'background-color: #ccffcc; color: #006600'
+            if val < 0: return 'background-color: #441111; color: #FF9999; font-weight: bold'
+            if val > 0: return 'background-color: #114411; color: #99FF99'
         except: pass
         return ''
 
@@ -101,7 +124,8 @@ if check_auth():
             d_range = st.date_input("Analysis Period", [date(2026, 2, 1), date(2026, 2, 28)])
             start_date, end_date = d_range[0], (d_range[1] if len(d_range) > 1 else d_range[0])
             
-            up_main = st.file_uploader("Upload Data.xlsx (Master)", type=["xlsx"])
+            # ميزة الحفظ التلقائي لضمان ثبات الملفات
+            up_main = st.file_uploader("Upload Data.xlsx", type=["xlsx"])
             if up_main: save_file(up_main, "data_last.xlsx")
             
             up_intra = st.file_uploader("Upload Required.xlsx", type=["xlsx"])
@@ -118,7 +142,7 @@ if check_auth():
             df_all = pd.read_excel("data_last.xlsx", sheet_name=0)
             working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
             base_hrs_per_person = working_days * 8
-            st.markdown('<p class="main-header">🌍 Global Fleet Capacity Analysis (All Languages)</p>', unsafe_allow_html=True)
+            st.markdown('<p class="main-header">🌍 Global Fleet Capacity Analysis (Dark View)</p>', unsafe_allow_html=True)
 
             for _, row in df_all.iterrows():
                 lang_name = str(row.iloc[0]); target_workload_hrs = float(row.iloc[1])
@@ -129,6 +153,7 @@ if check_auth():
                 req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
                 hc_variance = actual_hc_count - req_hc
 
+                # عرض البيانات بنفس الفيو الأصلي
                 with st.expander(f"🚩 Language: {lang_name.upper()}", expanded=True):
                     c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
                     c1.metric("Tgt Hrs", f"{int(target_workload_hrs):,}h")
@@ -139,10 +164,8 @@ if check_auth():
                     c6.metric("Act HC", f"{int(actual_hc_count)}")
                     c7.metric("HC Gap", f"{int(hc_variance)}", delta=int(hc_variance))
             st.divider()
-        else:
-            st.info("👋 يرجى رفع ملف 'Data.xlsx' لأول مرة لتثبيت البيانات.")
 
-    # --- TAB 2, 3, 4 تظل كما هي بنفس المنطق المعتاد ---
+    # --- TAB 2, 3, 4 (تكمل بنفس المنطق المعتاد) ---
     with tab2:
         if os.path.exists("intra_last.xlsx"):
             xls = pd.ExcelFile("intra_last.xlsx")
