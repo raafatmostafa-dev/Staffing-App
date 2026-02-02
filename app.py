@@ -169,7 +169,8 @@ if check_auth():
             
             # العنوان المعدل داخل التابة
             st.subheader(f"🎯 Resource Requirements Analysis")
-
+        
+        xls = pd.ExcelFile("intra_last.xlsx")
             df_raw = pd.read_excel("intra_last.xlsx", sheet_name=op_lang, header=None)
             if not df_raw.empty:
                 new_cols = ["Intervals"] + [pd.to_datetime(d).strftime('%Y-%m-%d') for d in df_raw.iloc[0, 1:]]
@@ -216,4 +217,5 @@ if check_auth():
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
 
