@@ -5,7 +5,7 @@ from datetime import date, datetime, time
 
 st.set_page_config(page_title="WFM Professional Suite", layout="wide")
 
-# --- دالة التلوين ---
+# --- دالة التلوين للأرقام الصحيحة ---
 def color_net_staffing(val):
     try:
         if val < 0: return 'background-color: #ffcccc; color: #900000; font-weight: bold'
@@ -13,14 +13,7 @@ def color_net_staffing(val):
     except: pass
     return ''
 
-# --- تنقية الشيتات ---
-def get_clean_sheets(xls_file):
-    try:
-        all_sheets = pd.ExcelFile(xls_file).sheet_names
-        return [s for s in all_sheets if "Sheet" not in s]
-    except: return []
-
-# --- توحيد تنسيق الوقت ---
+# --- توحيد تنسيق الوقت (حل مشكلة الـ None) ---
 def format_time_index(t):
     if isinstance(t, (time, datetime)): return t.strftime('%H:%M')
     try: return pd.to_datetime(str(t)).strftime('%H:%M')
@@ -28,69 +21,71 @@ def format_time_index(t):
 
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity", "⏰ Intraday", "🗓️ Scheduling", "⚖️ Net Staffing"])
 
-# --- TAB 1: Capacity (إصلاح الـ AttributeError) ---
+# --- TAB 1: Capacity (الرجوع للشكل القديم ومعالجة شيت البيانات) ---
 with tab1:
     with st.sidebar:
         st.header("⚙️ Global Settings")
         d_range = st.date_input("Select Date Range", [date(2026, 2, 1), date(2026, 2, 28)])
-        start_date = d_range[0]
-        end_date = d_range[1] if len(d_range) > 1 else d_range[0]
+        start_date, end_date = d_range[0], (d_range[1] if len(d_range) > 1 else d_range[0])
+        
         main_file = st.file_uploader("Upload Data.xlsx (Capacity)", type=["xlsx"])
 
     if main_file:
-        sheets = get_clean_sheets(main_file)
-        if sheets:
-            sel_lang_cap = st.selectbox("Select Language (Capacity)", sheets, key="cap_lang")
-            df_cap = pd.read_excel(main_file, sheet_name=sel_lang_cap)
-            
-            # التأكد من أن الجدول ليس فارغاً
-            if not df_cap.empty:
-                df_cap.columns = [str(c).strip().lower() for c in df_cap.columns]
-                
-                working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
-                base_hours = working_days * 8
-                
-                col_t = next((c for c in df_cap.columns if 'target' in c), None)
-                col_a = next((c for c in df_cap.columns if 'actual' in c), None)
-                col_s = next((c for c in df_cap.columns if 'shrink' in c), None)
+        # قراءة الشيت الأساسي (Sheet1)
+        df_all_data = pd.read_excel(main_file, sheet_name=0) 
+        languages = df_all_data.iloc[:, 0].unique().tolist()
+        
+        sel_lang = st.selectbox("🌍 Select Language", languages)
+        st.session_state['active_lang'] = sel_lang # تثبيت اللغة للأبلكيشن كله
+        
+        # فلترة البيانات بناءً على اللغة المختارة
+        lang_data = df_all_data[df_all_data.iloc[:, 0] == sel_lang].iloc[0]
+        
+        # حساب الساعات (المعادلة الأصلية)
+        working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
+        base_hours = working_days * 8
+        
+        # جلب القيم من الأعمدة (Target, Actual, Shrinkage)
+        target_hrs = float(lang_data.iloc[1])
+        actual_hc = float(lang_data.iloc[2])
+        shrink_val = float(lang_data.iloc[3])
+        shrink_p = shrink_val / 100 if shrink_val > 1 else shrink_val
+        
+        # الحسبة
+        req_hc = np.ceil(target_hrs / (base_hours * (1 - shrink_p))) if base_hours > 0 else 0
+        
+        st.markdown(f"### 📊 Capacity Results for **{sel_lang}**")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Target Hours", f"{int(target_hrs)}h")
+        c2.metric("Required HC", int(req_hc))
+        c3.metric("HC Variance", int(actual_hc - req_hc), delta=int(actual_hc - req_hc))
 
-                if all([col_t, col_a, col_s]):
-                    row = df_cap.iloc[0]
-                    shrink_p = float(row[col_s]) / 100 if float(row[col_s]) > 1 else float(row[col_s])
-                    req_hc = np.ceil(float(row[col_t]) / (base_hours * (1 - shrink_p))) if base_hours > 0 else 0
-                    
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("Target Hours", f"{int(row[col_t])}h")
-                    c2.metric("Required HC", int(req_hc))
-                    c3.metric("HC Variance", int(float(row[col_a]) - req_hc))
-            else:
-                st.error("The selected sheet is empty.")
-
-# --- TAB 2: Intraday ---
+# --- TAB 2: Intraday (قراءة النص ساعة بدقة) ---
 with tab2:
-    st.subheader("Half-Hour Interval Requirements")
     intra_file = st.file_uploader("Upload Required.xlsx", type=["xlsx"])
     if intra_file:
-        lang_int = st.selectbox("Select Language (Intraday)", get_clean_sheets(intra_file), key="int_lang")
-        df_raw = pd.read_excel(intra_file, sheet_name=lang_int, header=None)
-        if not df_raw.empty:
-            dates_row = df_raw.iloc[0, 1:].values
-            new_cols = ["Intervals"] + [pd.to_datetime(d).strftime('%Y-%m-%d') for d in dates_row]
+        # بيفتح أوتوماتيك على الشيت اللي اسمه زي اللغة المختارة
+        lang = st.session_state.get('active_lang', "Arabic")
+        try:
+            df_raw = pd.read_excel(intra_file, sheet_name=lang, header=None)
+            new_cols = ["Intervals"] + [pd.to_datetime(d).strftime('%Y-%m-%d') for d in df_raw.iloc[0, 1:]]
             df_intra = df_raw.drop(0).copy()
             df_intra.columns = new_cols
             df_intra['Intervals'] = df_intra['Intervals'].apply(format_time_index)
+            
             final_intra = df_intra.set_index('Intervals').apply(pd.to_numeric, errors='coerce').fillna(0).round(0).astype(int)
             st.session_state['df_intra'] = final_intra
             st.dataframe(final_intra, use_container_width=True)
+        except:
+            st.error(f"Sheet '{lang}' not found in Required.xlsx")
 
 # --- TAB 3: Scheduling ---
 with tab3:
-    st.subheader("Employee Staffing Coverage")
     sched_file = st.file_uploader("Upload Schedules.xlsx", type=["xlsx"])
     if sched_file:
-        lang_sch = st.selectbox("Select Language (Schedule)", get_clean_sheets(sched_file), key="sch_lang")
-        df_s = pd.read_excel(sched_file, sheet_name=lang_sch)
-        if not df_s.empty:
+        lang_s = st.session_state.get('active_lang', "Arabic")
+        try:
+            df_s = pd.read_excel(sched_file, sheet_name=lang_s)
             intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
             df_s['Day'] = pd.to_datetime(df_s['Day'], errors='coerce')
             target_dates = pd.date_range(start_date, end_date).strftime('%Y-%m-%d').tolist()
@@ -112,16 +107,15 @@ with tab3:
                         except: continue
                     counts.append(c)
                 cov_dict[d_str] = counts
+            
             final_cov = pd.DataFrame(cov_dict).set_index('Intervals').astype(int)
             st.session_state['df_cov'] = final_cov
             st.dataframe(final_cov, use_container_width=True)
+        except:
+            st.error(f"Sheet '{lang_s}' not found in Schedules.xlsx")
 
-# --- TAB 4: Net Staffing ---
+# --- TAB 4: Net Staffing (المقارنة بدون None) ---
 with tab4:
     if 'df_intra' in st.session_state and 'df_cov' in st.session_state:
         d_intra = st.session_state['df_intra']
-        d_cov = st.session_state['df_cov']
-        common_cols = [c for c in d_cov.columns if c in d_intra.columns]
-        if common_cols:
-            df_net = d_cov.reindex(d_intra.index).fillna(0).astype(int)[common_cols] - d_intra[common_cols]
-            st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+        d_cov =
