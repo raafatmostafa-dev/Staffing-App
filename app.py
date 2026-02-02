@@ -3,53 +3,62 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-st.title("📊 Forecasting & Staffing App")
-st.write("Upload your file (CSV or Excel).")
+st.set_page_config(page_title="Staffing Planner", layout="wide")
 
-uploaded_file = st.file_uploader("Choose a file", type=["csv", "xlsx"])
+st.title("📊 Staffing & Forecasting App (Excel Version)")
+st.write("ارفع ملف الإكسيل بتاعك وهحسبلك كل حاجة")
+
+# تحديد نوع الملف إكسيل فقط
+uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx"])
 
 if uploaded_file:
     try:
-        if uploaded_file.name.endswith('.xlsx'):
-            data = pd.read_excel(uploaded_file)
-        else:
-            data = pd.read_csv(uploaded_file, encoding='cp1256')
+        # قراءة الإكسيل
+        data = pd.read_excel(uploaded_file)
         
         # تنظيف أسامي الأعمدة
-        data.columns = [str(c).strip().lower() for c in data.columns]
-        st.subheader("📄 Data Preview")
+        data.columns = [str(c).strip() for c in data.columns]
+        
+        st.subheader("📄 معاينة البيانات")
         st.dataframe(data.head())
 
-        # البحث عن الأعمدة (بما إن عندك week و calls)
-        col1 = data.columns[0] # أول عمود (الأسابيع)
-        col2 = data.columns[1] # ثاني عمود (المكالمات)
+        # بياخد أول عمود (الأسابيع) وتاني عمود (المكالمات) أياً كانت أساميهم
+        col_name_1 = data.columns[0]
+        col_name_2 = data.columns[1]
 
-        st.subheader("📈 Forecast (Next 4 Periods)")
+        # حساب التوقعات (متوسط آخر 4 أسابيع)
+        avg_calls = data[col_name_2].tail(4).mean()
         
-        # حساب الفوركاست بناءً على آخر القيم
-        avg_calls = data[col2].tail(4).mean()
-        
-        # إنشاء أسابيع جديدة للمستقبل
-        last_week_num = len(data)
-        future_weeks = [f"Week {i}" for i in range(last_week_num + 1, last_week_num + 5)]
+        # تجهيز الفترة القادمة (4 أسابيع مستقبلاً)
+        last_val = len(data)
+        future_periods = [f"Week {i}" for i in range(last_val + 1, last_val + 5)]
         forecast_values = [round(avg_calls)] * 4
-        
-        forecast_df = pd.DataFrame({col1: future_weeks, 'Forecasted Calls': forecast_values})
-        st.table(forecast_df)
 
-        # الرسم البياني
-        fig, ax = plt.subplots(figsize=(10,5))
-        ax.plot(data[col1], data[col2], marker='o', label='Actual Calls')
-        ax.plot(future_weeks, forecast_values, marker='x', linestyle='--', label='Forecast')
-        plt.xticks(rotation=45)
-        ax.legend()
-        st.pyplot(fig)
+        # تقسيم الشاشة
+        col_left, col_right = st.columns(2)
 
-        # حساب الموظفين (كل موظف 2000 مكالمة في الأسبوع مثلاً)
-        st.subheader("👥 Required Agents")
-        agents = [int(np.ceil(v / 2000)) for v in forecast_values] # عدل رقم 2000 حسب إنتاجية الموظف عندك
-        staff_df = pd.DataFrame({col1: future_weeks, 'Agents Needed': agents})
-        st.table(staff_df)
+        with col_left:
+            st.subheader("📈 رسم بياني للتوقعات")
+            fig, ax = plt.subplots()
+            ax.plot(data[col_name_1], data[col_name_2], marker='o', label='البيانات الحالية')
+            ax.plot(future_periods, forecast_values, marker='x', linestyle='--', label='التوقعات المستقبيلة')
+            plt.xticks(rotation=45)
+            ax.legend()
+            st.pyplot(fig)
+
+        with col_right:
+            st.subheader("👥 حساب عدد الموظفين")
+            # تقدر تغير الرقم ده من جوه الأبلكيشن
+            capacity = st.number_input("الموظف الواحد بيخلص كام مكالمة في الأسبوع؟", value=2000)
+            
+            needed = [int(np.ceil(v / capacity)) for v in forecast_values]
+            
+            res = pd.DataFrame({
+                "الأسبوع القادم": future_periods,
+                "المكالمات المتوقعة": forecast_values,
+                "الموظفين المطلوبين": needed
+            })
+            st.table(res)
 
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"حصلت مشكلة وأنا بقرأ الملف: {e}")
