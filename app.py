@@ -117,7 +117,7 @@ if check_auth():
         try: return pd.to_datetime(str(t)).strftime('%H:%M')
         except: return str(t)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "⏰ Intraday", "🗓️ Scheduling", "⚖️ Net Staffing"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "⏰ Required", "🗓️ Scheduling", "⚖️ Net Staffing"])
 
     with tab1:
         with st.sidebar:
@@ -218,6 +218,7 @@ if check_auth():
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
 
 
 
