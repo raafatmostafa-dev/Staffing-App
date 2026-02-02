@@ -85,7 +85,7 @@ with tab2:
         except Exception as e:
             st.error(f"Error in Intraday: {e}")
 
-# --- TAB 3: SCHEDULING (تحويل المواعيد لتغطية رقمية) ---
+# --- TAB 3: SCHEDULING (المعالجة الصحيحة للتغطية) ---
 with tab3:
     st.subheader("Employee Staffing Schedules")
     sched_file = st.file_uploader("Upload Schedules.xlsx", type=["xlsx"], key="sched_up")
@@ -97,38 +97,42 @@ with tab3:
             df_sched = pd.read_excel(sched_file, sheet_name=selected_lang_sched)
             
             if not df_sched.empty:
-                # 1. تنظيف البيانات الأساسية
-                df_sched['Day'] = pd.to_datetime(df_sched['Day'], errors='coerce')
-                
-                # 2. إنشاء قائمة بكل الـ Intervals (كل نص ساعة)
+                # 1. تجهيز قائمة الـ Intervals (نفس تنسيق شيت الريكوايرد)
                 intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
                 
-                # 3. الحصول على التواريخ الفريدة الموجودة في الشيت
-                unique_days = df_sched['Day'].dropna().unique()
-                unique_days = sorted(unique_days)
+                # 2. تنظيف عمود اليوم واستخراج التواريخ الفريدة
+                df_sched['Day'] = pd.to_datetime(df_sched['Day'], errors='coerce')
+                unique_days = sorted(df_sched['Day'].dropna().unique())
                 
-                # 4. بناء جدول التغطية (نفس فيو الانترا داي)
                 coverage_data = {"Intervals": intervals}
                 
                 for day in unique_days:
                     day_str = pd.to_datetime(day).strftime('%Y-%m-%d')
                     daily_counts = []
                     
-                    # فلترة الموظفين الشغالين في هذا اليوم
-                    day_df = df_sched[df_sched['Day'] == day]
+                    # فلترة بيانات اليوم المختار
+                    day_df = df_sched[df_sched['Day'] == day].copy()
                     
                     for slot in intervals:
-                        slot_time = datetime.strptime(slot, '%H:%M').time()
+                        slot_dt = datetime.strptime(slot, '%H:%M')
                         count = 0
                         
                         for _, row in day_df.iterrows():
                             try:
-                                # تحويل وقت البداية والنهاية للموظف
-                                start = pd.to_datetime(row['Start Time']).time()
-                                end = pd.to_datetime(row['End Time']).time()
+                                # تجاهل الموظفين اللي عندهم OFF
+                                if str(row['Start Time']).strip().upper() == 'OFF':
+                                    continue
+                                    
+                                # تحويل وقت البداية والنهاية لمقارنته بالـ Slot
+                                # بنستخدم pd.to_datetime عشان يتعامل مع الـ AM/PM صح
+                                start_dt = pd.to_datetime(row['Start Time'])
+                                end_dt = pd.to_datetime(row['End Time'])
                                 
-                                # التحقق إذا كان الموظف يعمل في هذه الفترة
-                                if start <= slot_time < end:
+                                # توحيد التاريخ للمقارنة بالوقت فقط
+                                s_time = start_dt.replace(year=1900, month=1, day=1)
+                                e_time = end_dt.replace(year=1900, month=1, day=1)
+                                
+                                if s_time <= slot_dt < e_time:
                                     count += 1
                             except:
                                 continue
@@ -136,11 +140,11 @@ with tab3:
                     
                     coverage_data[day_str] = daily_counts
                 
-                # 5. عرض النتيجة النهائية
+                # 3. عرض الجدول النهائي
                 df_coverage = pd.DataFrame(coverage_data)
                 st.success(f"Calculated Coverage for: **{selected_lang_sched}**")
                 
-                # عرض الجدول الرقمي (كل نص ساعة كم موظف موجود)
+                # عرض الجدول الرقمي (هيظهر الأرقام دلوقتي بدل الأصفار)
                 st.dataframe(df_coverage, use_container_width=True)
                 
                 # رسم بياني للتغطية
