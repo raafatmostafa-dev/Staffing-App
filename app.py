@@ -37,11 +37,9 @@ with tab1:
     
     with st.sidebar:
         st.header("⚙️ Global Settings")
-        # إعدادات التاريخ لحساب أيام العمل (F3, F4)
         start_date = st.date_input("Start Date (F3)", date(2026, 2, 1))
         end_date = st.date_input("End Date (F4)", date(2026, 2, 28))
         
-        # حساب أيام العمل NETWORKDAYS
         start_np = np.datetime64(start_date)
         end_np = np.datetime64(end_date) + np.timedelta64(1, 'D')
         working_days = np.busday_count(start_np, end_np)
@@ -57,18 +55,11 @@ with tab1:
             df = pd.read_excel(main_file)
             df.columns = [str(c).strip().lower() for c in df.columns]
             
-            # ربط الأعمدة من ملفك
-            col_lang = "languages"
-            col_target_hrs = "monthly target hours hours"
-            col_actual_hc = "actual hc"
-            col_shr = "shrinkage"
-
             for _, row in df.iterrows():
-                lang = row[col_lang]
-                t_hrs = float(row[col_target_hrs])
-                i_hc = float(row[col_actual_hc])
-                # معالجة الشرينكيدج
-                raw_shr = float(row[col_shr])
+                lang = row["languages"]
+                t_hrs = float(row["monthly target hours hours"])
+                i_hc = float(row["actual hc"])
+                raw_shr = float(row["shrinkage"])
                 i_shr = raw_shr * 100 if raw_shr < 1 else raw_shr
 
                 with st.expander(f"Analysis for: {lang}", expanded=True):
@@ -76,76 +67,83 @@ with tab1:
                     act_hc = c_in1.number_input(f"Actual HC ({lang})", value=i_hc, key=f"hc_{lang}")
                     shr_p = c_in2.number_input(f"Shrinkage % ({lang})", value=i_shr, key=f"sh_{lang}") / 100
                     
-                    # معادلات الحساب
                     n_cap = base_hours * (1 - shr_p)
                     req_hc = np.ceil(t_hrs / n_cap) if n_cap > 0 else 0
                     a_hrs = act_hc * n_cap
                     
-                    # عرض الـ 6 أرقام المطلوبة
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("Target Hours", f"{round(t_hrs)}h")
-                    m2.metric("Actual Hours", f"{round(a_hrs)}h")
-                    m3.metric("Hrs Variance", f"{round(a_hrs - t_hrs)}h", delta=round(a_hrs - t_hrs))
-                    
-                    m4, m5, m6 = st.columns(3)
+                    m1, m2, m3, m4, m5, m6 = st.columns(6)
+                    m1.metric("Target Hrs", f"{round(t_hrs)}h")
+                    m2.metric("Actual Hrs", f"{round(a_hrs)}h")
+                    m3.metric("Hrs Var", f"{round(a_hrs - t_hrs)}h", delta=round(a_hrs - t_hrs))
                     m4.metric("Target HC", int(req_hc))
                     m5.metric("Actual HC", int(act_hc))
-                    m6.metric("HC Variance", int(act_hc - req_hc), delta=int(act_hc - req_hc))
+                    m6.metric("HC Var", int(act_hc - req_hc), delta=int(act_hc - req_hc))
         except Exception as e:
-            st.error(f"Error in Capacity Tab: {e}")
+            st.error(f"Error in Capacity: {e}")
 
 # ---------------------------------------------------------
-# الخطوة 2: INTRADAY REQUIREMENTS (Interval Analysis)
+# الخطوة 2: INTRADAY REQUIREMENTS (قراءة التواريخ من الهيدر)
 # ---------------------------------------------------------
 with tab2:
     st.subheader("Half-Hour Interval Requirements")
-    st.write("ارفع الشيت اللي فيه 4 تابات (لغات) بكل نص ساعة.")
-    
-    intraday_file = st.file_uploader("Upload Requirements File", type=["xlsx"], key="intra_up")
+    intraday_file = st.file_uploader("Upload Required.xlsx", type=["xlsx"], key="intra_up")
     
     if intraday_file:
         try:
             xls = pd.ExcelFile(intraday_file)
             selected_sheet = st.selectbox("Select Language (Sheet)", xls.sheet_names)
-            df_intra = pd.read_excel(intraday_file, sheet_name=selected_sheet)
             
-            # --- تنظيف الوقت والتاريخ ---
-            if not df_intra.empty:
-                for col in df_intra.columns:
-                    # لو العمود الأول أو اسمه فيه Interval
-                    if 'interval' in str(col).lower() or col == df_intra.columns[0]:
-                        df_intra[col] = pd.to_datetime(df_intra[col], errors='coerce').dt.strftime('%H:%M')
-                    # لو بيانات تاريخية
-                    elif isinstance(df_intra[col].iloc[0], (datetime, date)):
-                        df_intra[col] = pd.to_datetime(df_intra[col], errors='coerce').dt.strftime('%Y-%m-%d')
+            # قراءة الشيت بالكامل بدون هيدر للتحكم فيه
+            df_raw = pd.read_excel(intraday_file, sheet_name=selected_sheet, header=None)
             
-            st.write(f"Showing data for: **{selected_sheet}**")
-            st.dataframe(df_intra.fillna(""), use_container_width=True)
-            
-            # رسم بياني توضيحي
-            numeric_cols = df_intra.select_dtypes(include=[np.number]).columns
-            if len(numeric_cols) > 0: # <-- هنا التعديل اللي صلح الـ Syntax Error
-                st.line_chart(df_intra[numeric_cols])
+            if not df_raw.empty:
+                # 1. استخراج التواريخ من أول صف (Row 0)
+                header_row = df_raw.iloc[0].values
+                new_columns = []
+                
+                for i, val in enumerate(header_row):
+                    if i == 0:
+                        new_columns.append("Intervals")
+                    else:
+                        try:
+                            # تحويل التواريخ لشكل نظيف YYYY-MM-DD
+                            clean_date = pd.to_datetime(val).strftime('%Y-%m-%d')
+                            new_columns.append(clean_date)
+                        except:
+                            new_columns.append(str(val))
+                
+                # 2. تعيين الهيدر الجديد وحذف أول صف
+                df_intra = df_raw.copy()
+                df_intra.columns = new_columns
+                df_intra = df_intra.drop(0).reset_index(drop=True)
+                
+                # 3. تنظيف الوقت (Intervals) من تاريخ 1970
+                df_intra['Intervals'] = pd.to_datetime(df_intra['Intervals'], errors='coerce').dt.strftime('%H:%M')
+                
+                st.write(f"Showing data for: **{selected_sheet}**")
+                # عرض الجدول بشكل نهائي
+                st.dataframe(df_intra.fillna(0), use_container_width=True)
+                
+                # رسم بياني لأول يوم كمثال
+                numeric_cols = df_intra.select_dtypes(include=[np.number]).columns
+                if len(numeric_cols) > 0:
+                    st.line_chart(df_intra.set_index('Intervals')[numeric_cols[0]])
 
         except Exception as e:
-            st.error(f"Error in Intraday Tab: {e}")
+            st.error(f"Error in Intraday: {e}")
 
 # ---------------------------------------------------------
 # الخطوة 3: SCHEDULING (Shift Management)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("Staffing Schedules")
-    st.write("ارفع شيت السكادول (Employee, From, To).")
-    
     sched_file = st.file_uploader("Upload Schedule File", type=["xlsx"], key="sched_up")
     
     if sched_file:
         try:
             df_sched = pd.read_excel(sched_file)
-            st.write("Raw Schedule Data:")
             st.dataframe(df_sched, use_container_width=True)
-            
             if st.button("Analyze Coverage"):
-                st.success("تم تحليل البيانات بنجاح!")
+                st.success("Analysis Complete!")
         except Exception as e:
-            st.error(f"Error in Scheduling Tab: {e}")
+            st.error(f"Error in Scheduling: {e}")
