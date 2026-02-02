@@ -23,8 +23,8 @@ def login():
     st.markdown("### 🔒 WFM Secure Access")
     col1, col2 = st.columns(2)
     with col1:
-        user = st.text_input("Username")
-        pw = st.text_input("Password", type="password")
+        user = st.text_input("Raafat Mostafa")
+        pw = st.text_input("Password", type="Rr#01010353831")
         if st.button("Login"):
             if user == "admin" and pw == "wfm2026": # اليوزر والباسورد بتوعك
                 st.session_state["auth"] = True
@@ -131,3 +131,4 @@ if login():
             st.subheader(f"⚖️ Staffing Gap Analysis: {st.session_state['active_lang']}")
             # الكود هنا بيطرح بيانات السكادول من الانتراداي تلقائياً
             st.write("الجدول التفاعلي للـ Gap Analysis يظهر هنا بناءً على المدخلات المذكورة.")
+
