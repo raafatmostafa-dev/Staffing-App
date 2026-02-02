@@ -2,16 +2,18 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from datetime import date
 
-st.set_page_config(page_title="Multi-Language Staffing", layout="wide")
+st.set_page_config(page_title="Workforce Planner Pro", layout="wide")
 
-st.title("📊 Staffing Calculator per Language")
+st.title("📊 Multi-Language Capacity Planner")
+st.write("الحساب بناءً على أيام العمل الفعلية (NETWORKDAYS) لكل لغة")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "csv"])
 
 if uploaded_file:
     try:
-        # قراءة الملف ومعالجة الأخطاء
+        # قراءة الملف
         if uploaded_file.name.endswith('.xlsx'):
             data = pd.read_excel(uploaded_file)
         else:
@@ -19,58 +21,58 @@ if uploaded_file:
         
         data.columns = [str(c).strip().lower() for c in data.columns]
         
-        # البحث عن الأعمدة الأساسية
+        # تحديد الأعمدة
         col_lang = next((c for c in data.columns if 'lang' in c or 'لغة' in c), None)
         col_hours = next((c for c in data.columns if 'hour' in c or 'ساع' in c), None)
 
         if col_lang and col_hours:
-            st.sidebar.header("⚙️ Global Settings")
-            working_days = st.sidebar.number_input("Working Days (Month)", value=22)
+            # --- قسم إعدادات التاريخ (NETWORKDAYS) ---
+            st.sidebar.header("🗓️ NETWORKDAYS Settings")
+            start_date = st.sidebar.date_input("Start Date (F3)", date(2024, 1, 1))
+            end_date = st.sidebar.date_input("End Date (F4)", date(2024, 1, 31))
+            
+            # حساب أيام العمل (بايثون بياخد التاريخ النهائي حصري، فبنضيف يوم)
+            # المبدأ: الإثنين-الجمعة هو الافتراضي، لو عايز السبت والأحد كأيام عمل بنغير الـ weekmask
+            days = np.busday_count(str(start_date), str(pd.to_datetime(end_date) + pd.Timedelta(days=1)))
+            st.sidebar.info(f"Working Days: {days}")
+            
             shrinkage_pct = st.sidebar.slider("Shrinkage %", 0, 100, 20) / 100
             
-            # سعة الموظف الواحد الأسبوعية
-            weekly_cap_per_agent = ((working_days * 8) / 4) * (1 - shrinkage_pct)
+            # تطبيق المعادلة: (أيام العمل * 8 ساعات) مخصوم منها الشرينكيدج
+            monthly_capacity_per_agent = (days * 8) * (1 - shrinkage_pct)
+            # تحويل لسعة أسبوعية للمقارنة مع داتا الأسابيع
+            weekly_cap_per_agent = monthly_capacity_per_agent / 4 
 
-            # تجميع الساعات المطلوبة لكل لغة
+            # --- الحسابات لكل لغة ---
             lang_summary = data.groupby(col_lang)[col_hours].mean().reset_index()
-            lang_summary.columns = ['Language', 'Target Hours (Avg)']
+            lang_summary.columns = ['Language', 'Avg Weekly Target Hours']
+            
+            # حساب الهيد كاونت المطلوب
+            lang_summary['Required HC'] = lang_summary['Avg Weekly Target Hours'].apply(
+                lambda x: int(np.ceil(x / weekly_cap_per_agent)) if weekly_cap_per_agent > 0 else 0
+            )
 
-            st.subheader("📝 Staffing Requirements per Language")
-            
-            # حساب الهيد كاونت المطلوب لكل لغة
-            lang_summary['Agents Needed'] = lang_summary['Target Hours (Avg)'].apply(lambda x: int(np.ceil(x / weekly_cap_per_agent)))
-            
-            # عرض الجدول
+            st.subheader(f"📅 Month Analysis: {start_date} to {end_date}")
             st.table(lang_summary)
 
-            # رسم بياني للمقارنة بين اللغات
-            
-            fig, ax = plt.subplots(figsize=(10, 5))
-            ax.bar(lang_summary['Language'], lang_summary['Target Hours (Avg)'], color='skyblue', label='Required Hours')
-            ax.set_ylabel("Hours")
-            ax.set_title("Workload per Language")
-            st.pyplot(fig)
-
-            # قسم تفصيلي لكل لغة (إدخال الأرقام الفعلية)
+            # تفاصيل كل لغة
             st.divider()
-            st.subheader("🔍 Language Specific Variance")
-            
             for index, row in lang_summary.iterrows():
-                with st.expander(f"Analysis for: {row['Language']}"):
-                    c1, c2 = st.columns(2)
-                    actual_hc = c1.number_input(f"Actual HC for {row['Language']}", value=int(row['Agents Needed']), key=f"hc_{row['Language']}")
+                with st.expander(f"Detailed Variance: {row['Language']}"):
+                    col1, col2, col3 = st.columns(3)
                     
-                    available_hrs = actual_hc * weekly_cap_per_agent
-                    variance = available_hrs - row['Target Hours (Avg)']
+                    actual_hc = col1.number_input(f"Actual HC ({row['Language']})", value=int(row['Required HC']), key=f"hc_{row['Language']}")
                     
-                    c2.metric("Variance (Hours)", f"{round(variance, 1)} hr", delta=round(variance, 1))
+                    # الساعات المتاحة من الهيد كاونت الفعلي
+                    paid_hours = actual_hc * (weekly_cap_per_agent / (1 - shrinkage_pct))
+                    available_hours = actual_hc * weekly_cap_per_agent
+                    variance = available_hours - row['Avg Weekly Target Hours']
                     
-                    if variance < 0:
-                        st.error(f"Understaffed: You need more people for {row['Language']}")
-                    else:
-                        st.success(f"Optimized: {row['Language']} coverage is good.")
+                    col2.metric("Paid Hours (Weekly)", f"{round(paid_hours)} hr")
+                    col3.metric("Variance", f"{round(variance, 1)} hr", delta=round(variance, 1))
+
         else:
-            st.error("❌ تأكد أن الملف يحتوي على عمود للغة (Language) وعمود للساعات (Hours)")
+            st.error("❌ الملف لازم يحتوي على أعمدة 'language' و 'hours'")
 
     except Exception as e:
         st.error(f"Error: {e}")
