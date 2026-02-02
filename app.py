@@ -168,7 +168,7 @@ if check_auth():
             st.session_state['active_lang'] = op_lang
             
             # العنوان المعدل داخل التابة
-            st.subheader(f"🎯 Resource Requirements: {op_lang}") 
+            st.subheader(f"🎯 Resource Requirements Analysis")
 
             df_raw = pd.read_excel("intra_last.xlsx", sheet_name=op_lang, header=None)
             if not df_raw.empty:
@@ -216,3 +216,4 @@ if check_auth():
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
