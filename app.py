@@ -71,29 +71,22 @@ if check_auth():
     # كود الـ CSS (الدارك مود للعمود الجانبي فقط واللايت مود للباقي)
     st.markdown("""
         <style>
-        /* 1. جعل العمود الجانبي (Sidebar) دارك مود */
         [data-testid="stSidebar"] {
             background-color: #1E1E1E !important;
-            color: purple !important;
         }
         [data-testid="stSidebar"] .stMarkdown p, [data-testid="stSidebar"] label {
-            color: #00FFCC !important; /* لون الخطوط داخل السايدبار */
+            color: #00FFCC !important;
         }
         [data-testid="stSidebar"] .stButton button {
             background-color: #333;
             color: white;
             border: 1px solid #00FFCC;
         }
-
-        /* 2. الحفاظ على باقي الصفحة لايت مود (أبيض) */
         .stApp {
             background-color: #FFFFFF;
         }
-        
-        /* 3. تنسيق الخطوط والمقاييس في الصفحة البيضاء */
         [data-testid="stMetricValue"] { font-size: 1.5rem !important; color: #1E3A8A !important; }
         [data-testid="stMetricLabel"] { font-size: 0.85rem !important; color: #444 !important; }
-        
         .main-header { 
             font-size: 1.2rem; 
             font-weight: bold; 
@@ -117,19 +110,21 @@ if check_auth():
         try: return pd.to_datetime(str(t)).strftime('%H:%M')
         except: return str(t)
 
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requirements", "🗓️ Scheduling", "⚖️ Net Staffing"])
+    # تعديل مسمى التابة هنا
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requirements", "🗓️ Scheduling", "⚖️ Net Staffing"])
+    
     with tab1:
         with st.sidebar:
             st.header("⚙️ Configuration")
             d_range = st.date_input("Analysis Period", [date(2026, 2, 1), date(2026, 2, 28)])
             start_date, end_date = d_range[0], (d_range[1] if len(d_range) > 1 else d_range[0])
             
-            # ميزة الحفظ التلقائي لضمان ثبات الملفات
             up_main = st.file_uploader("Upload Data.xlsx", type=["xlsx"])
             if up_main: save_file(up_main, "data_last.xlsx")
             
-            up_intra = st.file_uploader("Upload Required.xlsx", type=["xlsx"])
-            if up_intra: save_file(up_intra, "Required_last.xlsx")
+            # تعديل مسمى الرفع هنا ليتناسب مع القسم الجديد
+            up_intra = st.file_uploader("Upload Resource Requirements.xlsx", type=["xlsx"])
+            if up_intra: save_file(up_intra, "intra_last.xlsx")
             
             up_sched = st.file_uploader("Upload Schedules.xlsx", type=["xlsx"])
             if up_sched: save_file(up_sched, "sched_last.xlsx")
@@ -164,15 +159,17 @@ tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requ
                     c7.metric("HC Gap", f"{int(hc_variance)}", delta=int(hc_variance))
             st.divider()
 
-    # --- TAB 2, 3, 4 (تكمل بنفس المنطق المعتاد في الصفحة البيضاء) ---
     with tab2:
+        # عرض البيانات تحت مسمى Resource Requirements
         if os.path.exists("intra_last.xlsx"):
-                        st.subheader(f"🎯 Resource Requirements: {lang}")
-
             xls = pd.ExcelFile("intra_last.xlsx")
             avail_langs = [s for s in xls.sheet_names if "Sheet" not in s]
             op_lang = st.selectbox("🎯 Select Language", avail_langs, key="op_filter")
             st.session_state['active_lang'] = op_lang
+            
+            # العنوان المعدل داخل التابة
+            st.subheader(f"🎯 Resource Requirements: {op_lang}") 
+
             df_raw = pd.read_excel("intra_last.xlsx", sheet_name=op_lang, header=None)
             if not df_raw.empty:
                 new_cols = ["Intervals"] + [pd.to_datetime(d).strftime('%Y-%m-%d') for d in df_raw.iloc[0, 1:]]
@@ -219,16 +216,3 @@ tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requ
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
