@@ -82,7 +82,8 @@ with tab1:
             st.error(f"Error in Capacity: {e}")
 
 # ---------------------------------------------------------
-# الخطوة 2: INTRADAY REQUIREMENTS (قراءة التواريخ من الهيدر)
+# ---------------------------------------------------------
+# الخطوة 2: INTRADAY REQUIREMENTS (حل مشكلة الأسماء المتكررة)
 # ---------------------------------------------------------
 with tab2:
     st.subheader("Half-Hour Interval Requirements")
@@ -93,57 +94,43 @@ with tab2:
             xls = pd.ExcelFile(intraday_file)
             selected_sheet = st.selectbox("Select Language (Sheet)", xls.sheet_names)
             
-            # قراءة الشيت بالكامل بدون هيدر للتحكم فيه
+            # قراءة الملف بدون هيدر خالص (header=None) لتجنب خطأ التكرار فوراً
             df_raw = pd.read_excel(intraday_file, sheet_name=selected_sheet, header=None)
             
             if not df_raw.empty:
-                # 1. استخراج التواريخ من أول صف (Row 0)
-                header_row = df_raw.iloc[0].values
+                # 1. سحب التواريخ من الصف الأول (الصف رقم 0 في بايثون)
+                first_row = df_raw.iloc[0].values
                 new_columns = []
                 
-                for i, val in enumerate(header_row):
+                for i, val in enumerate(first_row):
                     if i == 0:
                         new_columns.append("Intervals")
                     else:
                         try:
-                            # تحويل التواريخ لشكل نظيف YYYY-MM-DD
+                            # تحويل التاريخ لشكل نظيف (2026-02-01)
                             clean_date = pd.to_datetime(val).strftime('%Y-%m-%d')
                             new_columns.append(clean_date)
                         except:
-                            new_columns.append(str(val))
+                            # لو القيمة مش تاريخ، بنحطلها اسم فريد عشان ما يحصلش Duplicate
+                            new_columns.append(f"Col_{i}")
                 
-                # 2. تعيين الهيدر الجديد وحذف أول صف
+                # 2. تعيين العناوين الجديدة وحذف صف التواريخ من الداتا
                 df_intra = df_raw.copy()
                 df_intra.columns = new_columns
                 df_intra = df_intra.drop(0).reset_index(drop=True)
                 
-                # 3. تنظيف الوقت (Intervals) من تاريخ 1970
+                # 3. تنظيف عمود الـ Intervals من تاريخ 1970
                 df_intra['Intervals'] = pd.to_datetime(df_intra['Intervals'], errors='coerce').dt.strftime('%H:%M')
                 
                 st.write(f"Showing data for: **{selected_sheet}**")
-                # عرض الجدول بشكل نهائي
+                # عرض الجدول النهائي - التواريخ الآن هي العناوين
                 st.dataframe(df_intra.fillna(0), use_container_width=True)
                 
-                # رسم بياني لأول يوم كمثال
+                # رسم بياني بناءً على التاريخ المختار
                 numeric_cols = df_intra.select_dtypes(include=[np.number]).columns
                 if len(numeric_cols) > 0:
                     st.line_chart(df_intra.set_index('Intervals')[numeric_cols[0]])
 
         except Exception as e:
-            st.error(f"Error in Intraday: {e}")
-
-# ---------------------------------------------------------
-# الخطوة 3: SCHEDULING (Shift Management)
-# ---------------------------------------------------------
-with tab3:
-    st.subheader("Staffing Schedules")
-    sched_file = st.file_uploader("Upload Schedule File", type=["xlsx"], key="sched_up")
-    
-    if sched_file:
-        try:
-            df_sched = pd.read_excel(sched_file)
-            st.dataframe(df_sched, use_container_width=True)
-            if st.button("Analyze Coverage"):
-                st.success("Analysis Complete!")
-        except Exception as e:
-            st.error(f"Error in Scheduling: {e}")
+            # رسالة خطأ واضحة في حالة وجود أي مشكلة أخرى
+            st.error(f"Error processing intraday data: {e}")
