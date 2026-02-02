@@ -3,36 +3,28 @@ import pandas as pd
 import numpy as np
 from datetime import date
 
-st.set_page_config(page_title="Workforce Gap Analysis", layout="wide")
+st.set_page_config(page_title="Custom Language Staffing", layout="wide")
 
-st.title("📊 Workforce Gap Analysis Calculator")
+st.title("📊 Language-Specific Workforce Analysis")
 
-# --- 1. إعدادات الحساب ---
-st.sidebar.header("⚙️ إعدادات الحساب")
-start_date = st.sidebar.date_input("Start Date", date(2024, 1, 1))
-end_date = st.sidebar.date_input("End Date", date(2024, 1, 31))
+# --- 1. إعدادات الوقت (F3, F4) ---
+st.sidebar.header("🗓️ Monthly Period (NETWORKDAYS)")
+start_date = st.sidebar.date_input("Start Date (F3)", date(2024, 1, 1))
+end_date = st.sidebar.date_input("End Date (F4)", date(2024, 1, 31))
 
-# حساب أيام العمل الشهرية
+# حساب أيام العمل
 start_np = np.datetime64(start_date, 'D')
 end_np = np.datetime64(end_date, 'D') + np.timedelta64(1, 'D')
 working_days = np.busday_count(start_np, end_np)
+total_hours_month = working_days * 8
 
-# نسبة الشرينكيدج
-shrinkage_pct = st.sidebar.slider("Shrinkage %", 0, 100, 20) / 100
+st.sidebar.info(f"إجمالي ساعات العمل المتاحة (100%): {total_hours_month} ساعة")
 
-# سعة الموظف الشهرية الصافية (معادلتك بالظبط)
-monthly_net_cap = (working_days * 8) * (1 - shrinkage_pct)
-
-# سعة الموظف الأسبوعية (عشان لو الداتا بالأسابيع)
-weekly_net_cap = monthly_net_cap / 4
-
-st.sidebar.info(f"سعة الموظف في الشهر: {round(monthly_net_cap, 1)} ساعة")
-st.sidebar.info(f"سعة الموظف في الأسبوع: {round(weekly_net_cap, 1)} ساعة")
-
-uploaded_file = st.file_uploader("Upload File", type=["xlsx", "csv"])
+uploaded_file = st.file_uploader("Upload Your Sheet", type=["xlsx", "csv"])
 
 if uploaded_file:
     try:
+        # قراءة الملف
         if uploaded_file.name.endswith('.xlsx'):
             df = pd.read_excel(uploaded_file)
         else:
@@ -40,41 +32,34 @@ if uploaded_file:
         
         df.columns = [str(c).strip().lower() for c in df.columns]
         
+        # البحث عن الأعمدة
         col_lang = next((c for c in df.columns if 'lang' in c or 'لغة' in c), None)
-        col_hours = next((c for c in df.columns if 'hour' in c or 'ساع' in c), None)
+        col_target = next((c for c in df.columns if 'target' in c or 'hour' in c or 'مطلوب' in c), None)
+        col_actual_hc = next((c for c in df.columns if 'actual' in c or 'hc' in c or 'فعلي' in c), None)
 
-        if col_lang and col_hours:
-            # التعديل الجوهري: بناخد "المتوسط الأسبوعي" للساعات مش المجموع الكلي
-            summary = df.groupby(col_lang)[col_hours].mean().reset_index()
-            summary.columns = ['Language', 'Avg Weekly Hours']
+        if col_lang and col_target:
+            # تجميع البيانات لكل لغة
+            summary = df.groupby(col_lang).agg({
+                col_target: 'sum',
+                col_actual_hc: 'max' if col_actual_hc else lambda x: 0
+            }).reset_index()
+            summary.columns = ['Language', 'Total Target Hours', 'Actual HC']
 
-            # المطلوب = متوسط ساعات الأسبوع / سعة الموظف الأسبوعية
-            summary['Required HC'] = (summary['Avg Weekly Hours'] / weekly_net_cap).apply(np.ceil)
-
-            st.subheader("📝 التحليل بناءً على متوسط الساعات الأسبوعية")
+            st.subheader("📝 Calculations per Language")
             
-            final_results = []
+            final_report = []
             for _, row in summary.iterrows():
-                with st.expander(f"اللغة: {row['Language']}"):
-                    c1, c2 = st.columns(2)
-                    actual_hc = c1.number_input(f"Actual HC ({row['Language']})", value=0, key=f"hc_{row['Language']}")
+                with st.expander(f"⚙️ Settings for {row['Language']}", expanded=True):
+                    col1, col2, col3 = st.columns(3)
                     
-                    # الحسبة اللي إنت طلبتها: (الفعلي * السعة) - (المطلوب * السعة)
-                    actual_hours = actual_hc * weekly_net_cap
-                    target_hours = row['Avg Weekly Hours']
-                    variance_hours = actual_hours - target_hours
+                    # 1. إدخال الشرينكيدج لكل لغة لوحدها
+                    lang_shrinkage = col1.number_input(f"Shrinkage % for {row['Language']}", value=20.0, step=1.0, key=f"shr_{row['Language']}") / 100
                     
-                    c2.metric("Target Hours (Wk)", f"{round(target_hours)} hr")
-                    st.metric("Variance (Hours)", f"{round(variance_hours, 1)} hr", delta=round(variance_hours, 1))
+                    # 2. الهيد كاونت (يسحب من الشيت أو تدخله لو 0)
+                    actual_hc = col2.number_input(f"Actual Headcount ({row['Language']})", value=float(row['Actual HC']), key=f"hc_{row['Language']}")
                     
-                    final_results.append({
-                        "Language": row['Language'],
-                        "Avg Weekly Target": round(target_hours),
-                        "Required HC": row['Required HC'],
-                        "Actual HC": actual_hc,
-                        "Gap (Agents)": actual_hc - row['Required HC']
-                    })
-
-            st.table(pd.DataFrame(final_results))
-    except Exception as e:
-        st.error(f"خطأ: {e}")
+                    # --- تطبيق معادلاتك ---
+                    # سعة الموظف بعد الشرينكيدج الخاص باللغة
+                    lang_net_capacity = total_hours_month * (1 - lang_shrinkage)
+                    
+                    # المطلوب =
