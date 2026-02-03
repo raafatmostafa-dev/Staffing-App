@@ -70,9 +70,15 @@ def check_auth():
 if check_auth():
     # كود الـ CSS (الدارك مود للعمود الجانبي فقط واللايت مود للباقي)
     st.markdown("""
+      # كود الـ CSS المعدل
+    st.markdown("""
         <style>
         [data-testid="stSidebar"] {
             background-color: #1E1E1E !important;
+        }
+        /* Da el-satr ely haykhalli el-headers (Configuration) bel-abyad */
+        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+            color: #FFFFFF !important;
         }
         [data-testid="stSidebar"] .stMarkdown p, [data-testid="stSidebar"] label {
             color: #00FFCC !important;
@@ -215,3 +221,4 @@ if check_auth():
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
