@@ -68,15 +68,13 @@ def check_auth():
 
 # --- 3. تشغيل التطبيق بعد الدخول ---
 if check_auth():
-    # كود الـ CSS (الدارك مود للعمود الجانبي فقط واللايت مود للباقي)
-    st.markdown("""
-      # كود الـ CSS المعدل
+    # كود الـ CSS المعدل
     st.markdown("""
         <style>
         [data-testid="stSidebar"] {
             background-color: #1E1E1E !important;
         }
-        /* Da el-satr ely haykhalli el-headers (Configuration) bel-abyad */
+        /* Configuration header color to White */
         [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
             color: #FFFFFF !important;
         }
@@ -221,4 +219,3 @@ if check_auth():
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
-
