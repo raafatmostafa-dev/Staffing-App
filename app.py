@@ -110,10 +110,10 @@ if check_auth():
         try: return pd.to_datetime(str(t)).strftime('%H:%M')
         except: return str(t)
 
-    # تعديل مسمى التابة هنا
-# أضفنا key="v3_resource" لإجبار الواجهة على التحديث
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requirements", "🗓️ Scheduling", "⚖️ Net Staffing"]) 
-with tab1:
+    # --- 4. Tabs Setup ---
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requirements", "🗓️ Scheduling", "⚖️ Net Staffing"]) 
+
+    with tab1:
         with st.sidebar:
             st.header("⚙️ Configuration")
             d_range = st.date_input("Analysis Period", [date(2026, 2, 1), date(2026, 2, 28)])
@@ -122,7 +122,6 @@ with tab1:
             up_main = st.file_uploader("Upload Data.xlsx", type=["xlsx"])
             if up_main: save_file(up_main, "data_last.xlsx")
             
-            # تعديل مسمى الرفع هنا ليتناسب مع القسم الجديد
             up_intra = st.file_uploader("Upload Resource Requirements.xlsx", type=["xlsx"])
             if up_intra: save_file(up_intra, "intra_last.xlsx")
             
@@ -160,17 +159,14 @@ with tab1:
             st.divider()
 
     with tab2:
-        # عرض البيانات تحت مسمى Resource Requirements
         if os.path.exists("intra_last.xlsx"):
             xls = pd.ExcelFile("intra_last.xlsx")
             avail_langs = [s for s in xls.sheet_names if "Sheet" not in s]
             op_lang = st.selectbox("🎯 Select Language", avail_langs, key="op_filter")
             st.session_state['active_lang'] = op_lang
             
-            # العنوان المعدل داخل التابة
             st.subheader(f"🎯 Resource Requirements Analysis")
-        
-        xls = pd.ExcelFile("intra_last.xlsx")
+            
             df_raw = pd.read_excel("intra_last.xlsx", sheet_name=op_lang, header=None)
             if not df_raw.empty:
                 new_cols = ["Intervals"] + [pd.to_datetime(d).strftime('%Y-%m-%d') for d in df_raw.iloc[0, 1:]]
@@ -199,13 +195,15 @@ with tab1:
                             try:
                                 st_v = str(r['Start Time']).strip().upper()
                                 if st_v in ['OFF', 'NAN', '-', '']: continue
-                                st_t, en_t = pd.to_datetime(st_v).time(), pd.to_datetime(str(r['End Time'])).time()
+                                st_t = pd.to_datetime(st_v).time()
+                                en_t = pd.to_datetime(str(r['End Time'])).time()
                                 if (st_t <= slot_t < en_t) if st_t < en_t else (slot_t >= st_t or slot_t < en_t): counts[i] += 1
                             except: continue
                     cov_dict[d_str] = counts
                 st.session_state['df_cov'] = pd.DataFrame(cov_dict).set_index('Intervals').astype(int)
                 st.dataframe(st.session_state['df_cov'], use_container_width=True)
-            except: st.error(f"Sheet '{lang}' not found.")
+            except Exception as e:
+                st.error(f"Sheet '{lang}' not found or error occurred.")
 
     with tab4:
         lang = st.session_state.get('active_lang')
@@ -217,10 +215,3 @@ with tab1:
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
-
-
-
-
-
-
-
