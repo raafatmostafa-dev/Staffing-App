@@ -185,27 +185,28 @@ with tab3:
         if os.path.exists("sched_last.xlsx") and lang:
             st.subheader(f"🗓️ Staff Coverage: {lang}")
             try:
-                # 1. قراءة البيانات
+                # 1. قراءة الملف وتوحيد صيغة التاريخ
                 df_s = pd.read_excel("sched_last.xlsx", sheet_name=lang)
-                df_s['Day'] = pd.to_datetime(df_s['Day'], errors='coerce')
+                df_s['Day'] = pd.to_datetime(df_s['Day']).dt.date # توحيد التاريخ كـ date object
                 
-                # 2. تجهيز الفترات الزمنية
+                # 2. تجهيز الفترات الزمنية (30 دقيقة)
                 intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
-                target_dates = pd.date_range(start_date, end_date).strftime('%Y-%m-%d').tolist()
                 
-                # 3. إنشاء مصفوفة جديدة كلياً في كل مرة يتم فيها تحميل التبويب
-                # ده بيضمن إن الرقم 2 اللي بيظهرلك يتمسح تماماً لو مفيش غير موظف واحد
-                clean_coverage = pd.DataFrame(0, index=intervals, columns=target_dates)
+                # 3. تحديد الأيام المطلوبة بناءً على اختيارك في الـ Sidebar
+                # start_date و end_date جايين من اختيارك في الواجهة
+                target_dates = pd.date_range(start_date, end_date).date.tolist()
+                
+                # 4. بناء مصفوفة صفرية نظيفة تماماً للأيام المختارة فقط
+                df_coverage = pd.DataFrame(0, index=intervals, columns=[d.strftime('%Y-%m-%d') for d in target_dates])
 
+                # 5. توزيع الموظفين بدقة
                 for _, r in df_s.iterrows():
                     try:
                         if pd.isna(r['Day']): continue
-                        curr_day_dt = r['Day']
-                        curr_day_str = curr_day_dt.strftime('%Y-%m-%d')
+                        curr_day = r['Day']
                         
                         st_v = str(r['Start Time']).strip().upper()
                         en_v = str(r['End Time']).strip().upper()
-                        
                         if st_v in ['OFF', 'NAN', '-', ''] or en_v in ['OFF', 'NAN', '-', '']: continue
                         
                         start_t = pd.to_datetime(st_v).time()
@@ -215,29 +216,32 @@ with tab3:
                             slot_t = datetime.strptime(slot, '%H:%M').time()
                             
                             if start_t < end_t:
-                                # وردية عادية
+                                # وردية عادية (Day Shift)
                                 if start_t <= slot_t < end_t:
-                                    if curr_day_str in clean_coverage.columns:
-                                        clean_coverage.at[slot, curr_day_str] += 1
+                                    day_str = curr_day.strftime('%Y-%m-%d')
+                                    if day_str in df_coverage.columns:
+                                        df_coverage.at[slot, day_str] += 1
                             else:
-                                # وردية ليلية (زي ليما كيلين في ملفك)
-                                # الجزء الأول: في نفس اليوم (مثلاً من 6:30 مساءً لآخر اليوم)
+                                # وردية ليلية (Overnight Shift)
+                                # الجزء الأول: من وقت البدء حتى 23:30 (نفس اليوم)
                                 if slot_t >= start_t:
-                                    if curr_day_str in clean_coverage.columns:
-                                        clean_coverage.at[slot, curr_day_str] += 1
-                                # الجزء الثاني: ترحيل لليوم التالي (من 00:00 لـ 4:00 صباحاً)
+                                    day_str = curr_day.strftime('%Y-%m-%d')
+                                    if day_str in df_coverage.columns:
+                                        df_coverage.at[slot, day_str] += 1
+                                # الجزء الثاني: من 00:00 حتى وقت الانتهاء (اليوم التالي)
                                 elif slot_t < end_t:
-                                    next_day_str = (curr_day_dt + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-                                    if next_day_str in clean_coverage.columns:
-                                        clean_coverage.at[slot, next_day_str] += 1
+                                    next_day = curr_day + pd.Timedelta(days=1)
+                                    next_day_str = next_day.strftime('%Y-%m-%d')
+                                    if next_day_str in df_coverage.columns:
+                                        df_coverage.at[slot, next_day_str] += 1
                     except: continue
 
-                # تحديث الحالة وعرض الجدول النظيف
-                st.session_state['df_cov'] = clean_coverage
-                st.dataframe(clean_coverage, use_container_width=True)
+                # 6. عرض النتيجة
+                st.session_state['df_cov'] = df_coverage
+                st.dataframe(df_coverage, use_container_width=True)
                 
             except Exception as e:
-                st.error(f"⚠️ خطأ: {e}")
+                st.error(f"خطأ في معالجة البيانات: {e}")
 
     with tab4:
         lang = st.session_state.get('active_lang')
@@ -249,6 +253,7 @@ with tab3:
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
 
 
 
