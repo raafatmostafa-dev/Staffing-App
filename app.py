@@ -185,63 +185,61 @@ with tab3:
         if os.path.exists("sched_last.xlsx") and lang:
             st.subheader(f"🗓️ Staff Coverage: {lang}")
             try:
-                # 1. قراءة البيانات وتوحيد التواريخ
+                # 1. قراءة البيانات وضمان صحة التاريخ
                 df_s = pd.read_excel("sched_last.xlsx", sheet_name=lang)
                 df_s['Day'] = pd.to_datetime(df_s['Day']).dt.date
                 
-                # 2. إنشاء قائمة بالفترات الزمنية (كل 30 دقيقة)
+                # 2. تجهيز الفترات الزمنية والأيام المطلوبة
                 intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
-                
-                # 3. تحديد الأيام المختارة من الـ Sidebar
                 target_dates = pd.date_range(start_date, end_date).date.tolist()
                 
-                # 4. تصفير الجدول تماماً (أهم خطوة)
+                # 3. إنشاء مصفوفة "صفرية" تماماً للأيام المختارة (عشان نمنع أي تكرار)
                 df_coverage = pd.DataFrame(0, index=intervals, columns=[d.strftime('%Y-%m-%d') for d in target_dates])
 
-                # دالة تحويل الوقت لدقائق للمقارنة الدقيقة
-                def get_min(t_val):
-                    if pd.isna(t_val) or str(t_val).strip().upper() in ['OFF', 'NAN', '-']: return None
-                    try:
-                        t = pd.to_datetime(str(t_val)).time()
-                        return t.hour * 60 + t.minute
-                    except: return None
-
-                # 5. معالجة الورديات
+                # 4. توزيع الموظفين بالمنطق اللي قولت عليه
                 for _, r in df_s.iterrows():
+                    if pd.isna(r['Day']): continue
                     curr_day = r['Day']
-                    s_min = get_min(r['Start Time'])
-                    e_min = get_min(r['End Time'])
                     
-                    if s_min is None or e_min is None: continue
-                    
-                    for slot in intervals:
-                        h, m = map(int, slot.split(':'))
-                        slot_min = h * 60 + m
+                    # تنظيف الوقت وتحويله لـ Time Objects
+                    try:
+                        st_v, en_v = str(r['Start Time']).strip().upper(), str(r['End Time']).strip().upper()
+                        if st_v in ['OFF', 'NAN', '-', ''] or en_v in ['OFF', 'NAN', '-', '']: continue
                         
-                        if s_min < e_min: # وردية في نفس اليوم
-                            if s_min <= slot_min < e_min:
-                                d_str = curr_day.strftime('%Y-%m-%d')
-                                if d_str in df_coverage.columns:
-                                    df_coverage.at[slot, d_str] += 1
-                        else: # وردية عابرة لمنتصف الليل
-                            # الجزء الأول: من البداية لآخر اليوم
-                            if slot_min >= s_min:
-                                d_str = curr_day.strftime('%Y-%m-%d')
-                                if d_str in df_coverage.columns:
-                                    df_coverage.at[slot, d_str] += 1
-                            # الجزء الثاني: من 00:00 لوقت الانتهاء (يُحسب لليوم التالي)
-                            elif slot_min < e_min:
-                                next_day = curr_day + pd.Timedelta(days=1)
-                                n_str = next_day.strftime('%Y-%m-%d')
-                                if n_str in df_coverage.columns:
-                                    df_coverage.at[slot, n_str] += 1
+                        start_t = pd.to_datetime(st_v).time()
+                        end_t = pd.to_datetime(en_v).time()
+                    except: continue
 
-                # 6. عرض النتيجة النهائية
+                    for slot in intervals:
+                        slot_t = datetime.strptime(slot, '%H:%M').time()
+                        
+                        # الحالة الأولى: وردية في نفس اليوم (AM-AM, AM-PM, PM-PM قبل نص الليل)
+                        if start_t < end_t:
+                            if start_t <= slot_t < end_t:
+                                day_str = curr_day.strftime('%Y-%m-%d')
+                                if day_str in df_coverage.columns:
+                                    df_coverage.at[slot, day_str] += 1
+                                    
+                        # الحالة الثانية: الـ PM to AM (من بعد 23:30 يرمي في اليوم التالي)
+                        else:
+                            # الجزء بتاع "انهارده" (من ساعة البدء لحد 23:30)
+                            if slot_t >= start_t:
+                                day_str = curr_day.strftime('%Y-%m-%d')
+                                if day_str in df_coverage.columns:
+                                    df_coverage.at[slot, day_str] += 1
+                            # الجزء بتاع "بكرة" (من 00:00 لحد ساعة الانتهاء)
+                            elif slot_t < end_t:
+                                next_day = curr_day + pd.Timedelta(days=1)
+                                next_day_str = next_day.strftime('%Y-%m-%d')
+                                if next_day_str in df_coverage.columns:
+                                    df_coverage.at[slot, next_day_str] += 1
+
+                # 5. عرض النتيجة النهائية
                 st.session_state['df_cov'] = df_coverage
                 st.dataframe(df_coverage, use_container_width=True)
                 
             except Exception as e:
-                st.error(f"⚠️ خطأ في معالجة البيانات: {e}")
+                st.error(f"⚠️ حصلت مشكلة فنية: {e}")
     with tab4:
         lang = st.session_state.get('active_lang')
         if 'df_intra' in st.session_state and 'df_cov' in st.session_state:
@@ -252,6 +250,7 @@ with tab3:
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
 
 
 
