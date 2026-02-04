@@ -180,60 +180,65 @@ if check_auth():
                 st.session_state['df_intra'] = df_intra.set_index('Intervals').apply(pd.to_numeric, errors='coerce').fillna(0).round(0).astype(int)
                 st.dataframe(st.session_state['df_intra'], use_container_width=True)
 
-    with tab3:
+   with tab3:
         lang = st.session_state.get('active_lang')
         if os.path.exists("sched_last.xlsx") and lang:
             st.subheader(f"🗓️ Staff Coverage: {lang}")
             try:
+                # 1. قراءة البيانات والتأكد من نظافتها
                 df_s = pd.read_excel("sched_last.xlsx", sheet_name=lang)
-                intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
                 df_s['Day'] = pd.to_datetime(df_s['Day'], errors='coerce')
                 
-                # إنشاء قائمة بكل التواريخ المطلوبة
+                # 2. تجهيز الفترات الزمنية (30 دقيقة)
+                intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
                 target_dates = pd.date_range(start_date, end_date).strftime('%Y-%m-%d').tolist()
                 
-                # قاموس لتخزين التغطية لكل يوم، مع إضافة يوم احتياطي للورديات العابرة لمنتصف الليل
-                extended_dates = pd.date_range(start_date, end_date + pd.Timedelta(days=1)).strftime('%Y-%m-%d').tolist()
-                coverage_matrix = {d: [0] * len(intervals) for d in extended_dates}
+                # 3. إنشاء مصفوفة صفرية تماماً (Rows: Intervals, Cols: Dates)
+                # استخدمنا numpy لضمان السرعة وتصفير البيانات
+                coverage_data = np.zeros((len(intervals), len(target_dates)), dtype=int)
+                df_coverage = pd.DataFrame(coverage_data, index=intervals, columns=target_dates)
 
+                # 4. توزيع الموظفين
                 for _, r in df_s.iterrows():
                     try:
-                        day_str = r['Day'].strftime('%Y-%m-%d')
-                        if day_str not in coverage_matrix: continue
+                        if pd.isna(r['Day']): continue
+                        curr_day_str = r['Day'].strftime('%Y-%m-%d')
                         
                         st_v = str(r['Start Time']).strip().upper()
                         en_v = str(r['End Time']).strip().upper()
+                        
                         if st_v in ['OFF', 'NAN', '-', ''] or en_v in ['OFF', 'NAN', '-', '']: continue
                         
-                        start_t = pd.to_datetime(st_v).time()
-                        end_t = pd.to_datetime(en_v).time()
+                        st_t = pd.to_datetime(st_v).time()
+                        en_t = pd.to_datetime(en_v).time()
                         
                         for i, slot in enumerate(intervals):
                             slot_t = datetime.strptime(slot, '%H:%M').time()
                             
-                            if start_t < end_t:
-                                # وردية عادية: في نفس اليوم فقط
-                                if start_t <= slot_t < end_t:
-                                    coverage_matrix[day_str][i] += 1
+                            if st_t < en_t:
+                                # وردية صباحية (في نفس اليوم)
+                                if st_t <= slot_t < en_t:
+                                    if curr_day_str in df_coverage.columns:
+                                        df_coverage.at[slot, curr_day_str] += 1
                             else:
-                                # وردية ليلية (Cross-day):
-                                # 1. من وقت البدء حتى نهاية اليوم (23:30) -> تُحسب في اليوم الحالي
-                                if slot_t >= start_t:
-                                    coverage_matrix[day_str][i] += 1
-                                # 2. من الساعة 00:00 حتى وقت الانتهاء -> تُحسب في اليوم التالي
-                                if slot_t < end_t:
+                                # وردية ليلية (عابرة لمنتصف الليل)
+                                # الجزء الأول: من البداية لآخر اليوم
+                                if slot_t >= st_t:
+                                    if curr_day_str in df_coverage.columns:
+                                        df_coverage.at[slot, curr_day_str] += 1
+                                # الجزء الثاني: من 00:00 لوقت الانتهاء في اليوم التالي
+                                if slot_t < en_t:
                                     next_day = (r['Day'] + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-                                    if next_day in coverage_matrix:
-                                        coverage_matrix[next_day][i] += 1
+                                    if next_day in df_coverage.columns:
+                                        df_coverage.at[slot, next_day] += 1
                     except: continue
 
-                # عرض الأيام التي تقع ضمن نطاق البحث فقط
-                final_dict = {d: coverage_matrix[d] for d in target_dates}
-                st.session_state['df_cov'] = pd.DataFrame(final_dict, index=intervals).astype(int)
-                st.dataframe(st.session_state['df_cov'], use_container_width=True)
+                # 5. عرض النتيجة النهائية
+                st.session_state['df_cov'] = df_coverage
+                st.dataframe(df_coverage, use_container_width=True)
                 
             except Exception as e:
-                st.error(f"حدث خطأ أثناء معالجة الجداول: {e}")
+                st.error(f"⚠️ تأكد من اسم الشيت أو البيانات: {e}")
 
     with tab4:
         lang = st.session_state.get('active_lang')
@@ -245,4 +250,5 @@ if check_auth():
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
 
