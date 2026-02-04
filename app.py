@@ -188,26 +188,52 @@ if check_auth():
                 df_s = pd.read_excel("sched_last.xlsx", sheet_name=lang)
                 intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
                 df_s['Day'] = pd.to_datetime(df_s['Day'], errors='coerce')
+                
+                # إنشاء قائمة بكل التواريخ المطلوبة
                 target_dates = pd.date_range(start_date, end_date).strftime('%Y-%m-%d').tolist()
-                cov_dict = {"Intervals": intervals}
-                for d_str in target_dates:
-                    day_df = df_s[df_s['Day'].dt.strftime('%Y-%m-%d') == d_str]
-                    counts = [0] * len(intervals)
-                    for i, slot in enumerate(intervals):
-                        slot_t = datetime.strptime(slot, '%H:%M').time()
-                        for _, r in day_df.iterrows():
-                            try:
-                                st_v = str(r['Start Time']).strip().upper()
-                                if st_v in ['OFF', 'NAN', '-', '']: continue
-                                st_t = pd.to_datetime(st_v).time()
-                                en_t = pd.to_datetime(str(r['End Time'])).time()
-                                if (st_t <= slot_t < en_t) if st_t < en_t else (slot_t >= st_t or slot_t < en_t): counts[i] += 1
-                            except: continue
-                    cov_dict[d_str] = counts
-                st.session_state['df_cov'] = pd.DataFrame(cov_dict).set_index('Intervals').astype(int)
+                
+                # قاموس لتخزين التغطية لكل يوم، مع إضافة يوم احتياطي للورديات العابرة لمنتصف الليل
+                extended_dates = pd.date_range(start_date, end_date + pd.Timedelta(days=1)).strftime('%Y-%m-%d').tolist()
+                coverage_matrix = {d: [0] * len(intervals) for d in extended_dates}
+
+                for _, r in df_s.iterrows():
+                    try:
+                        day_str = r['Day'].strftime('%Y-%m-%d')
+                        if day_str not in coverage_matrix: continue
+                        
+                        st_v = str(r['Start Time']).strip().upper()
+                        en_v = str(r['End Time']).strip().upper()
+                        if st_v in ['OFF', 'NAN', '-', ''] or en_v in ['OFF', 'NAN', '-', '']: continue
+                        
+                        start_t = pd.to_datetime(st_v).time()
+                        end_t = pd.to_datetime(en_v).time()
+                        
+                        for i, slot in enumerate(intervals):
+                            slot_t = datetime.strptime(slot, '%H:%M').time()
+                            
+                            if start_t < end_t:
+                                # وردية عادية: في نفس اليوم فقط
+                                if start_t <= slot_t < end_t:
+                                    coverage_matrix[day_str][i] += 1
+                            else:
+                                # وردية ليلية (Cross-day):
+                                # 1. من وقت البدء حتى نهاية اليوم (23:30) -> تُحسب في اليوم الحالي
+                                if slot_t >= start_t:
+                                    coverage_matrix[day_str][i] += 1
+                                # 2. من الساعة 00:00 حتى وقت الانتهاء -> تُحسب في اليوم التالي
+                                if slot_t < end_t:
+                                    next_day = (r['Day'] + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+                                    if next_day in coverage_matrix:
+                                        coverage_matrix[next_day][i] += 1
+                    except: continue
+
+                # عرض الأيام التي تقع ضمن نطاق البحث فقط
+                final_dict = {d: coverage_matrix[d] for d in target_dates}
+                st.session_state['df_cov'] = pd.DataFrame(final_dict, index=intervals).astype(int)
                 st.dataframe(st.session_state['df_cov'], use_container_width=True)
+                
             except Exception as e:
-                st.error(f"Sheet '{lang}' not found or error occurred.")
+                st.error(f"حدث خطأ أثناء معالجة الجداول: {e}")
 
     with tab4:
         lang = st.session_state.get('active_lang')
@@ -219,3 +245,4 @@ if check_auth():
             if common_cols:
                 df_net = d_cov[common_cols] - d_intra[common_cols]
                 st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+
