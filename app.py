@@ -72,7 +72,7 @@ st.markdown("""
     .main-header {
         font-size: 2.2rem;
         font-weight: 800;
-        color: #0F172A;
+        color: #FFFFFF;
         letter-spacing: -1px;
         margin-bottom: 30px;
     }
