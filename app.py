@@ -4,7 +4,7 @@ import numpy as np
 from datetime import date, datetime, time
 import os
 
-# --- 1. إعدادات الواجهة (Elegant Professional Design) ---
+# --- 1. إعدادات الصفحة والتصميم (Elegant Design) ---
 st.set_page_config(page_title="WFM Professional Suite", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
@@ -42,8 +42,8 @@ def save_file(uploaded_file, name):
         f.write(uploaded_file.getbuffer())
 
 def color_net_staffing(val):
-    if val < 0: return 'background-color: #ffebee; color: #b71c1c; font-weight: bold' # عجز (أحمر)
-    if val > 0: return 'background-color: #e8f5e9; color: #1b5e20' # زيادة (أخضر)
+    if val < 0: return 'background-color: #ffebee; color: #b71c1c; font-weight: bold' # عجز
+    if val > 0: return 'background-color: #e8f5e9; color: #1b5e20' # زيادة
     return ''
 
 # --- 2. نظام تسجيل الدخول ---
@@ -51,7 +51,7 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.markdown("<div style='text-align: center; margin-top: 100px;'><h1 style='color:#1e3a8a;'>🔒 WFM Login</h1></div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; margin-top: 100px;'><h1 style='color:#1e3a8a;'>🔒 WFM Secure Login</h1></div>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 1, 1])
     with col:
         user = st.text_input("Username")
@@ -60,7 +60,7 @@ if not st.session_state["authenticated"]:
             if user == "Raafat Mostafa" and pw == "Rr#01010353831":
                 st.session_state["authenticated"] = True
                 st.rerun()
-            else: st.error("❌ خطأ في البيانات")
+            else: st.error("❌ بيانات الدخول غير صحيحة")
     st.stop()
 
 # --- 3. التطبيق الرئيسي ---
@@ -68,10 +68,10 @@ st.markdown('<h1 class="main-title">Workforce Management Suite</h1>', unsafe_all
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity", "🎯 Resource Req", "🗓️ Scheduling", "⚖️ Net Staffing"])
 
 with tab1:
-    with st.expander("⚙️ Configuration", expanded=False):
+    with st.expander("⚙️ Configuration & Uploads", expanded=False):
         c1, c2, c3 = st.columns(3)
         with c1:
-            d_range = st.date_input("Analysis Period", [date(2026, 4, 1), date(2026, 4, 30)])
+            d_range = st.date_input("Analysis Period", [date(2026, 4, 1), date(2026, 4, 30)]) #
         with c2:
             up_main = st.file_uploader("Upload Data.xlsx", type=["xlsx"])
             if up_main: save_file(up_main, "data_last.xlsx")
@@ -100,13 +100,13 @@ with tab1:
             m3.metric("Hrs Var", f"{int(avail_hrs-tgt):,}", delta=int(avail_hrs-tgt))
             m4.metric("Req HC", int(req_hc))
             m5.metric("Act HC", int(act_hc))
-            m6.metric("HC Gap", int(act_hc-req_hc), delta=int(act_hc-req_hc))
+            m6.metric("HC Gap", int(act_hc-req_hc), delta=int(act_hc-req_hc)) #
 
 with tab2:
     if os.path.exists("intra_last.xlsx"):
         xls = pd.ExcelFile("intra_last.xlsx")
         avail_langs = [s for s in xls.sheet_names if "Sheet" not in s]
-        op_lang = st.selectbox("🎯 Select Language", avail_langs)
+        op_lang = st.selectbox("🎯 Select Language", avail_langs) #
         st.session_state['active_lang'] = op_lang
         df_raw = pd.read_excel("intra_last.xlsx", sheet_name=op_lang, header=None)
         if not df_raw.empty:
@@ -114,7 +114,7 @@ with tab2:
             df_intra = df_raw.drop(0); df_intra.columns = cols
             df_intra.set_index("Intervals", inplace=True)
             st.session_state['df_intra_final'] = df_intra.apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
-            st.dataframe(st.session_state['df_intra_final'], use_container_width=True)
+            st.dataframe(st.session_state['df_intra_final'], use_container_width=True) #
 
 with tab3:
     lang = st.session_state.get('active_lang')
@@ -124,6 +124,7 @@ with tab3:
             sheet = next((s for s in xls_s.sheet_names if s.lower() == lang.lower()), None)
             if sheet:
                 df_s = pd.read_excel("sched_last.xlsx", sheet_name=sheet)
+                # مطابقة أعمدة ملفك: A=التاريخ، B=الاسم، C=البداية، D=النهاية
                 df_s.columns = ['Day', 'Name', 'Start', 'End'] + list(df_s.columns[4:])
                 df_s['Day'] = pd.to_datetime(df_s['Day']).dt.date
                 
@@ -132,7 +133,7 @@ with tab3:
                 df_cov = pd.DataFrame(0, index=intervals, columns=[d.strftime('%Y-%m-%d') for d in target_dates])
 
                 def to_min(v):
-                    if pd.isna(v) or str(v).strip().upper() in ["OFF", "NAN", ""]: return None
+                    if pd.isna(v) or str(v).strip().upper() in ["OFF", "NAN", ""]: return None #
                     return pd.to_datetime(str(v)).hour * 60 + pd.to_datetime(str(v)).minute
 
                 for _, r in df_s.iterrows():
@@ -142,26 +143,23 @@ with tab3:
                     if d_str in df_cov.columns:
                         for slot in intervals:
                             sl_m = int(slot[:2])*60 + int(slot[3:])
-                            if s_m < e_m:
+                            if s_m < e_m: # شيفت نهاري
                                 if s_m <= sl_m < e_m: df_cov.at[slot, d_str] += 1
-                            else: # Night Shift
-                                if sl_m >= s_m: df_cov.at[slot, d_str] += 1
-                                elif sl_m < e_m:
-                                    nxt = (r['Day'] + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-                                    if nxt in df_cov.columns: df_cov.at[slot, nxt] += 1
+                            else: # شيفت ليلي (منتصف الليل)
+                                if sl_m >= s_m or sl_m < e_m: df_cov.at[slot, d_str] += 1
                 
                 st.session_state['df_cov_final'] = df_cov
-                st.dataframe(df_cov.style.applymap(lambda v: 'background-color: #e3f2fd' if v > 0 else ''), use_container_width=True)
+                st.dataframe(df_cov.style.applymap(lambda v: 'background-color: #e3f2fd' if v > 0 else ''), use_container_width=True) #
         except Exception as e: st.error(f"Error: {e}")
 
 with tab4:
-    # الحساب النهائي: السكادول - الريكوايرد
+    # الحساب النهائي: السكادول ناقص الريكوايرد
     if 'df_intra_final' in st.session_state and 'df_cov_final' in st.session_state:
         d_req = st.session_state['df_intra_final']
         d_sch = st.session_state['df_cov_final'].reindex(d_req.index).fillna(0).astype(int)
         common = [c for c in d_sch.columns if c in d_req.columns]
         if common:
             st.subheader(f"⚖️ Efficiency Gap (Schedules - Required): {lang}")
-            df_net = d_sch[common] - d_req[common] # المعادلة المطلوبة
-            st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
+            df_net = d_sch[common] - d_req[common] #
+            st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True) #
     else: st.info("يرجى اختيار اللغة ورفع الملفات أولاً")
