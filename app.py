@@ -89,71 +89,63 @@ def save_file(uploaded_file, name):
     with open(name, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
-# --- 2. نظام تسجيل الدخول (تصميم العميق المطور) ---
+# --- 2. نظام تسجيل الدخول (المكان الصحيح للكود) ---
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
     st.markdown("""
         <style>
-        /* إضافة الخلفية العميقة باستخدام الصورة التي رفعتها */
+        /* الخلفية العميقة والشعار */
         .stApp {
-            background: linear-gradient(rgba(1, 4, 17, 0.7), rgba(1, 4, 17, 0.8)), 
-                        url('https://www.storyblocks.com/video/stock/digital-cyberspace-with-particles-and-digital-data-network-connections-high-speed-connection-and-data-analysis-technology-abstract-background-concept-bkp--fkwj4sh9u25');
+            background: linear-gradient(rgba(1, 4, 17, 0.8), rgba(1, 4, 17, 0.9)), 
+                        url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop');
             background-size: cover;
-            background-position: center;
         }
-
-        /* شعار Kalam في الأعلى على الشمال */
         .kalam-logo {
-            position: absolute;
-            top: 20px;
-            left: 30px;
-            font-family: 'Inter', sans-serif;
-            font-weight: 800;
-            font-size: 1.8rem;
-            color: #00F6FF; /* أزرق متوهج */
-            text-shadow: 0 0 10px rgba(0, 246, 255, 0.5);
-            z-index: 999;
+            position: absolute; top: 20px; left: 30px; font-family: 'Inter', sans-serif;
+            font-weight: 800; font-size: 1.8rem; color: #00F6FF; z-index: 999;
         }
-
         .login-card {
-            background: rgba(255, 255, 255, 0.05); /* شفافية عالية للعمق */
-            backdrop-filter: blur(25px) saturate(150%); /* تغبيش قوي */
-            padding: 50px 40px;
-            border-radius: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+            background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(25px);
+            padding: 50px 40px; border-radius: 30px; border: 1px solid rgba(255, 255, 255, 0.1);
             text-align: center;
-            margin-bottom: -40px;
-        }
-        
-        .brand-name {
-            font-family: 'Inter', sans-serif;
-            font-weight: 800;
-            font-size: 2.6rem;
-            color: white;
-            letter-spacing: -2px;
-            margin-bottom: 5px;
-            text-shadow: 0 0 20px rgba(255,255,255,0.2);
-        }
-        
-        .brand-sub {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-            margin-bottom: 30px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
         }
 
-        /* تحسين شكل حقول الإدخال لتناسب العمق */
+        /* 🔴 هنا الكود اللي بيخلي الخط أسود (حطه هنا) 🔴 */
         .stTextInput input {
-            background: rgba(255, 255, 255, 0.1) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            background-color: white !important; /* خلفية الخانة بيضاء */
+            color: black !important;           /* الخط اللي بتكتبه أسود */
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+            height: 45px !important;
+        }
+        /* تلوين كلمة Username و Password نفسها للأبيض عشان تبان في الخلفية الغامقة */
+        .stTextInput label {
             color: white !important;
-            border-radius: 12px !important;
+            font-weight: 500 !important;
         }
         </style>
+        
+        <div class="kalam-logo">Kalam</div>
+        <div style='height: 100px;'></div>
+    """, unsafe_allow_html=True)
+    
+    _, col, _ = st.columns([1, 1.1, 1])
+    with col:
+        st.markdown('<div class="login-card"><div style="font-size:2.6rem; color:white; font-weight:800;">WFM Data</div><div style="color:rgba(255,255,255,0.6); letter-spacing:2px;">ANALYTICS PORTAL</div></div>', unsafe_allow_html=True)
+        
+        # الخانات دلوقتي هتطبق عليها ستايل اللون الأسود تلقائياً
+        user = st.text_input("Username", placeholder="Enter Identity")
+        pw = st.text_input("Password", type="password", placeholder="••••••••")
+        
+        if st.button("Authenticate System", use_container_width=True):
+            if user == "Raafat Mostafa" and pw == "Rr#01010353831":
+                st.session_state["authenticated"] = True
+                st.rerun()
+            else:
+                st.error("🔒 Security Mismatch")
+    st.stop()
         
         <div class="kalam-logo">Kalam</div>
         
