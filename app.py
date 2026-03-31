@@ -157,10 +157,8 @@ with tab1:
         
         st.markdown("<div style='margin-bottom: 25px;'></div>", unsafe_allow_html=True)
 
-        # تجهيز قائمة لتخزين بيانات التشارت
+        # 1. تجميع البيانات وحساب الـ Supply Cap
         chart_records = []
-
-        # --- الجزء الأول: عرض الرسم البياني المجمع ---
         for _, row in df_all.iterrows():
             l_name = str(row.iloc[0])
             t_load = float(row.iloc[1])
@@ -175,24 +173,30 @@ with tab1:
                 "Supply Cap": s_cap
             })
 
-        # تحويل البيانات لـ DataFrame وعرضها في Bar Chart
-        df_chart = pd.DataFrame(chart_records).set_index("Language")
+        # 2. تحويل البيانات لـ DataFrame والترتيب من الأكبر للأصغر
+        df_chart = pd.DataFrame(chart_records)
+        # الترتيب بناءً على Target Load تنازلياً
+        df_chart = df_chart.sort_values(by="Target Load", ascending=False).set_index("Language")
         
-        st.markdown("### 📊 Load vs Supply Capacity Analysis")
-        # استخدام ألوان برقية متوافقة مع التصميم الجديد (كحلي وسماوي)
+        st.markdown("### 📊 Sorted Load vs Supply Analysis (High to Low)")
+        
+        # 3. عرض الرسم البياني المرتب
         st.bar_chart(df_chart, color=["#1E3A8A", "#00F6FF"])
         
         st.markdown("<hr style='border: 0.5px solid #E2E8F0; margin: 40px 0;'>", unsafe_allow_html=True)
 
-        # --- الجزء الثاني: عرض الكروت التفصيلية (الموجودة سابقاً) ---
-        for _, row in df_all.iterrows():
-            lang_name = str(row.iloc[0])
-            target_workload_hrs = float(row.iloc[1])
-            actual_hc_count = float(row.iloc[2])
-            shrink_val = float(row.iloc[3])
-            shrink_p = shrink_val / 100 if shrink_val > 1 else shrink_val 
+        # 4. عرض الكروت التفصيلية (بنفس ترتيب التشارت لراحة العين)
+        for lang_name, row_data in df_chart.iterrows():
+            # استخراج القيم من البيانات المرتبة
+            target_workload_hrs = row_data["Target Load"]
+            actual_available_hrs = row_data["Supply Cap"]
             
-            actual_available_hrs = (actual_hc_count * base_hrs_per_person) * (1 - shrink_p)
+            # استخراج القيم الأصلية من الملف للكروت (للحصول على الـ Shrinkage والـ HC)
+            original_row = df_all[df_all.iloc[:, 0] == lang_name].iloc[0]
+            actual_hc_count = float(original_row.iloc[2])
+            shrink_val = float(original_row.iloc[3])
+            shrink_p = shrink_val / 100 if shrink_val > 1 else shrink_val 
+
             hrs_variance = actual_available_hrs - target_workload_hrs
             req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
             hc_variance = actual_hc_count - req_hc
@@ -200,7 +204,7 @@ with tab1:
             with st.container():
                 st.markdown(f"""
                     <div style='background: #1E3A8A; padding: 10px 20px; border-radius: 10px 10px 0 0; color: white;'>
-                        <span style='font-weight: 800; font-size: 1.1rem;'>🌍 LANGUAGE GROUP: {lang_name.upper()}</span>
+                        <span style='font-weight: 800; font-size: 1.1rem;'>🌍 {lang_name.upper()}</span>
                     </div>
                 """, unsafe_allow_html=True)
                 
@@ -213,7 +217,6 @@ with tab1:
                 m6.metric("Active HC", f"{int(actual_hc_count)}")
                 m7.metric("HC Gap", f"{int(hc_variance)}", delta=int(hc_variance))
                 st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-
 with tab2:
     if os.path.exists("intra_last.xlsx"):
         xls = pd.ExcelFile("intra_last.xlsx")
