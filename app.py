@@ -169,14 +169,19 @@ if not st.session_state["authenticated"]:
             </div>
         """, unsafe_allow_html=True)
         
-        user = st.text_input("Username", placeholder="Identity")
+       user = st.text_input("Username", placeholder="Identity")
         pw = st.text_input("Password", type="password", placeholder="••••••••")
         
-        if st.button("Authenticate System", use_container_width=True):
+        # بنعمل متغير بيسمع لو دوست على الزرار
+        submit_button = st.button("Authenticate System", use_container_width=True)
+        
+        # التحقق: لو دوست الزرار "أو" دوست انتر (يعني القيمتين مش فاضيين)
+        if submit_button or (user and pw):
             if user == "Raafat Mostafa" and pw == "Rr#01010353831":
                 st.session_state["authenticated"] = True
                 st.rerun()
-            else:
+            # بنظهر الخطأ فقط لو الزرار اتداس والبيانات غلط عشان ميبقاش شكلها وحش أول ما تفتح
+            elif submit_button:
                 st.error("🔒 Security Mismatch")
     st.stop()
 
