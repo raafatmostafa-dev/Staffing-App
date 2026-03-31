@@ -8,7 +8,7 @@ import base64
 # --- 1. إعدادات الصفحة ---
 st.set_page_config(page_title="WFM Professional Suite", layout="wide", initial_sidebar_state="collapsed")
 
-# إخفاء الشريط الجانبي تماماً عبر CSS
+# إخفاء الشريط الجانبي تماماً عبر CSS لجعل الواجهة احترافية
 st.markdown("""
     <style>
     [data-testid="stSidebar"] {
@@ -17,6 +17,9 @@ st.markdown("""
     [data-testid="stSidebarNav"] {
         display: none;
     }
+    .stApp { background-color: #FFFFFF; }
+    [data-testid="stMetricValue"] { font-size: 1.5rem !important; color: #1E3A8A !important; }
+    .main-header { font-size: 1.2rem; font-weight: bold; color: #1E3A8A; border-bottom: 2px solid #EEEEEE; padding-bottom: 10px; }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     </style>
@@ -25,33 +28,6 @@ st.markdown("""
 def save_file(uploaded_file, name):
     with open(name, "wb") as f:
         f.write(uploaded_file.getbuffer())
-
-# --- 2. نظام تسجيل الدخول ---
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-
-if not st.session_state["authenticated"]:
-    st.markdown("<h2 style='text-align: center;'>🔒 WFM Secure Access</h2>", unsafe_allow_html=True)
-    _, col, _ = st.columns([1, 1, 1])
-    with col:
-        user = st.text_input("Username")
-        pw = st.text_input("Password", type="password")
-        if st.button("Login", use_container_width=True):
-            if user == "Raafat Mostafa" and pw == "Rr#01010353831":
-                st.session_state["authenticated"] = True
-                st.rerun()
-            else:
-                st.error("❌ بيانات الدخول غير صحيحة")
-    st.stop()
-
-# --- 3. تشغيل التطبيق (بعد الدخول) ---
-st.markdown("""
-    <style>
-    .stApp { background-color: #FFFFFF; }
-    [data-testid="stMetricValue"] { font-size: 1.5rem !important; color: #1E3A8A !important; }
-    .main-header { font-size: 1.2rem; font-weight: bold; color: #1E3A8A; border-bottom: 2px solid #EEEEEE; padding-bottom: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
 
 def color_net_staffing(val):
     try:
@@ -65,12 +41,32 @@ def format_time_index(t):
     try: return pd.to_datetime(str(t)).strftime('%H:%M')
     except: return str(t)
 
-# --- 4. Tabs Setup ---
+# --- 2. نظام تسجيل الدخول ---
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    st.markdown("<h2 style='text-align: center; margin-top: 50px;'>🔒 WFM Secure Access</h2>", unsafe_allow_html=True)
+    _, col, _ = st.columns([1, 1, 1])
+    with col:
+        user = st.text_input("Username")
+        pw = st.text_input("Password", type="password")
+        if st.button("Login", use_container_width=True):
+            if user == "Raafat Mostafa" and pw == "Rr#01010353831":
+                st.session_state["authenticated"] = True
+                st.rerun()
+            else:
+                st.error("❌ بيانات الدخول غير صحيحة")
+    st.stop()
+
+# --- 3. محتوى التطبيق بعد الدخول ---
+
+# إنشاء التبويبات
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requirements", "🗓️ Scheduling", "⚖️ Net Staffing"])
 
 with tab1:
-    # تم نقل أدوات الإعدادات هنا لأن الشريط الجانبي مخفي الآن
-    with st.expander("⚙️ Configuration & Uploads", expanded=False):
+    # قسم الإعدادات (بديل الشريط الجانبي)
+    with st.expander("⚙️ Configuration & Data Upload", expanded=False):
         c1, c2, c3 = st.columns(3)
         with c1:
             d_range = st.date_input("Analysis Period", [date(2026, 4, 1), date(2026, 4, 30)])
@@ -82,7 +78,7 @@ with tab1:
             if up_intra: save_file(up_intra, "intra_last.xlsx")
             up_sched = st.file_uploader("Upload Schedules.xlsx", type=["xlsx"])
             if up_sched: save_file(up_sched, "sched_last.xlsx")
-            if st.button("Logout"):
+            if st.button("Logout", use_container_width=True):
                 st.session_state["authenticated"] = False
                 st.rerun()
 
@@ -91,6 +87,7 @@ with tab1:
 
     if os.path.exists("data_last.xlsx"):
         df_all = pd.read_excel("data_last.xlsx", sheet_name=0)
+        # حساب أيام العمل الفعلي بين تاريخين
         working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
         base_hrs_per_person = working_days * 8
         st.markdown('<p class="main-header">🌍 Global Fleet Capacity Analysis</p>', unsafe_allow_html=True)
@@ -137,10 +134,11 @@ with tab2:
 with tab3:
     lang = st.session_state.get('active_lang')
     if os.path.exists("sched_last.xlsx") and lang:
-        st.subheader(f"🗓️ Staff Coverage: {lang}")
+        st.subheader(f"🗓️ Staff Coverage Calculation: {lang}")
         try:
             df_s = pd.read_excel("sched_last.xlsx", sheet_name=lang)
             df_s['Day'] = pd.to_datetime(df_s['Day']).dt.date
+            
             intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
             target_dates = pd.date_range(start_date, end_date).date.tolist()
             df_coverage = pd.DataFrame(0, index=intervals, columns=[d.strftime('%Y-%m-%d') for d in target_dates])
@@ -148,42 +146,50 @@ with tab3:
             for _, r in df_s.iterrows():
                 if pd.isna(r['Day']): continue
                 curr_day = r['Day']
+                
                 try:
-                    st_v, en_v = str(r['Start Time']).strip().upper(), str(r['End Time']).strip().upper()
+                    st_v = str(r['Start Time']).strip().upper()
+                    en_v = str(r['End Time']).strip().upper()
                     if st_v in ['OFF', 'NAN', '-', ''] or en_v in ['OFF', 'NAN', '-', '']: continue
+                    
                     start_t = pd.to_datetime(st_v).time()
                     end_t = pd.to_datetime(en_v).time()
                     
+                    # تحويل الوقت لدقائق للمقارنة الدقيقة
+                    s_min = start_t.hour * 60 + start_t.minute
+                    e_min = end_t.hour * 60 + end_t.minute
+
                     for slot in intervals:
                         slot_t = datetime.strptime(slot, '%H:%M').time()
-                        if start_t < end_t:
-                            if start_t <= slot_t < end_t:
-                                day_str = curr_day.strftime('%Y-%m-%d')
+                        sl_min = slot_t.hour * 60 + slot_t.minute
+                        day_str = curr_day.strftime('%Y-%m-%d')
+                        
+                        if s_min < e_min: # شيفت نهاري
+                            if s_min <= sl_min < e_min:
                                 if day_str in df_coverage.columns: df_coverage.at[slot, day_str] += 1
-                        else: # Night Shift
-                            if slot_t >= start_t:
-                                day_str = curr_day.strftime('%Y-%m-%d')
+                        else: # شيفت ليلي (Night Shift)
+                            if sl_min >= s_min: # الجزء الأول من الشيفت في نفس اليوم
                                 if day_str in df_coverage.columns: df_coverage.at[slot, day_str] += 1
-                            elif slot_t < end_t:
-                                next_day = curr_day + pd.Timedelta(days=1)
-                                next_day_str = next_day.strftime('%Y-%m-%d')
+                            elif sl_min < e_min: # الجزء الثاني في اليوم التالي
+                                next_day_str = (curr_day + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
                                 if next_day_str in df_coverage.columns: df_coverage.at[slot, next_day_str] += 1
                 except: continue
 
             st.session_state['df_cov'] = df_coverage
             st.dataframe(df_coverage, use_container_width=True)
         except Exception as e:
-            st.error(f"⚠️ مشكلة فنية: {e}")
+            st.error(f"⚠️ خطأ في معالجة الجداول: {e}")
 
 with tab4:
     lang = st.session_state.get('active_lang')
     if 'df_intra' in st.session_state and 'df_cov' in st.session_state:
         st.subheader(f"⚖️ Efficiency Analysis: {lang}")
         d_intra = st.session_state['df_intra']
+        # إعادة مواءمة جدول التغطية مع جدول المتطلبات
         d_cov = st.session_state['df_cov'].reindex(d_intra.index).fillna(0).astype(int)
         common_cols = [c for c in d_cov.columns if c in d_intra.columns]
         if common_cols:
             df_net = d_cov[common_cols] - d_intra[common_cols]
             st.dataframe(df_net.style.map(color_net_staffing), use_container_width=True)
     else:
-        st.info("قم برفع البيانات أولاً واختيار اللغة لتظهر تحليلات الفجوات.")
+        st.info("الرجاء رفع البيانات أولاً واختيار لغة من تبويب Resource Requirements.")
