@@ -93,14 +93,15 @@ if check_auth():
     # --- 4. Tabs Setup ---
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requirements", "🗓️ Scheduling", "⚖️ Net Staffing"]) 
 
-    with tab1:
-        with st.sidebar:
-            st.header("⚙️ Configuration")
-            d_range = st.date_input("Analysis Period", [date(2026, 2, 1), date(2026, 2, 28)])
-            start_date = d_range[0]
-            end_date = d_range[1] if len(d_range) > 1 else d_range[0]
-            
-            up_main = st.file_uploader("Upload Data.xlsx", type=["xlsx"])
+   # بدلاً من with st.sidebar:
+with tab1:
+    st.header("⚙️ Configuration")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        d_range = st.date_input("Analysis Period", [date(2026, 2, 1), date(2026, 2, 28)])
+    with col2:
+        up_main = st.file_uploader("Upload Data.xlsx", type=["xlsx"])
+    # ... وهكذا لبقية الأدوات
             if up_main: save_file(up_main, "data_last.xlsx")
             
             up_intra = st.file_uploader("Upload Resource Requirements.xlsx", type=["xlsx"])
