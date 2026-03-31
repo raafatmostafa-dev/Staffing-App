@@ -94,23 +94,72 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
-    _, col, _ = st.columns([1, 1.2, 1])
+    # إضافة مساحة علوية
+    st.markdown("<div style='height: 120px;'></div>", unsafe_allow_html=True)
+    
+    _, col, _ = st.columns([1, 1.1, 1])
     with col:
+        # تصميم الكارت الزجاجي (Glassmorphism)
         st.markdown("""
-            <div style='background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: 1px solid #F1F5F9;'>
-                <h2 style='text-align: center; color: #1E3A8A; font-weight: 800;'>WFM Suite</h2>
-                <p style='text-align: center; color: #64748B; margin-bottom: 30px;'>Enter your credentials to access the portal</p>
+            <style>
+            .login-card {
+                background: rgba(255, 255, 255, 0.7); /* خلفية بيضاء شفافة */
+                backdrop-filter: blur(15px); /* تأثير التغبيش الزجاجي */
+                padding: 50px 40px;
+                border-radius: 25px;
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                box-shadow: 0 25px 50px rgba(0,0,0,0.05);
+                text-align: center;
+                margin-bottom: -40px;
+            }
+            .brand-name {
+                font-family: 'Inter', sans-serif;
+                font-weight: 800;
+                font-size: 2.4rem;
+                color: #1E3A8A;
+                letter-spacing: -1.5px;
+                margin-bottom: 5px;
+            }
+            .brand-sub {
+                color: #64748B;
+                font-size: 0.95rem;
+                margin-bottom: 30px;
+            }
+            /* تنسيق زر الدخول ليكون أكثر رقيًا */
+            div.stButton > button {
+                background-color: #1E3A8A !important;
+                color: white !important;
+                border-radius: 12px !important;
+                height: 50px !important;
+                font-weight: 600 !important;
+                border: none !important;
+                transition: all 0.3s ease !important;
+                width: 100% !important;
+            }
+            div.stButton > button:hover {
+                background-color: #1e40af !important;
+                box-shadow: 0 10px 20px rgba(30, 58, 138, 0.2) !important;
+                transform: translateY(-2px);
+            }
+            </style>
+            
+            <div class="login-card">
+                <div class="brand-name">WFM Data</div>
+                <div class="brand-sub">Secure access to workforce analytics</div>
             </div>
         """, unsafe_allow_html=True)
-        user = st.text_input("Username", placeholder="e.g. Admin")
+        
+        # حقول الإدخال خارج الـ div لتجنب مشاكل streamlit
+        user = st.text_input("Username", placeholder="Enter your identity")
         pw = st.text_input("Password", type="password", placeholder="••••••••")
-        if st.button("Authorize Access", use_container_width=True):
+        
+        if st.button("Authenticate System"):
             if user == "Raafat Mostafa" and pw == "Rr#01010353831":
                 st.session_state["authenticated"] = True
+                st.success("Access Granted")
                 st.rerun()
             else:
-                st.error("🔒 Unauthorized Credentials")
+                st.error("🔒 Security mismatch. Check credentials.")
     st.stop()
 
 # --- 3. التطبيق الرئيسي ---
