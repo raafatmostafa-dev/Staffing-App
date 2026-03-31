@@ -186,7 +186,7 @@ with tab1:
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             margin=dict(l=0, r=0, t=20, b=0),
-            height=400,
+            height=250,
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         
