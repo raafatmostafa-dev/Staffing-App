@@ -3,12 +3,10 @@ import pandas as pd
 import numpy as np
 from datetime import date, datetime, time
 import os
-import base64
 
-# --- 1. إعدادات الصفحة والتصميم الفاخر ---
+# --- 1. إعدادات الصفحة والتصميم الفاخر (Elegant Design) ---
 st.set_page_config(page_title="WFM Professional Suite", layout="wide", initial_sidebar_state="collapsed")
 
-# تصميم CSS مخصص "Elegant & Chic View"
 st.markdown("""
     <style>
     /* تحسين الخلفية العامة */
@@ -20,7 +18,7 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 
-    /* تصميم التبويبات (Tabs) */
+    /* تصميم التبويبات (Tabs) بشكل عصري */
     .stTabs [data-baseweb="tab-list"] { gap: 10px; background-color: transparent; }
     .stTabs [data-baseweb="tab"] {
         height: 50px; background-color: white; border-radius: 12px 12px 0px 0px;
@@ -32,31 +30,33 @@ st.markdown("""
         border-bottom: 3px solid #1e3a8a !important;
     }
 
-    /* كروت اللغات */
+    /* كروت اللغات في Dashboard */
     .language-card {
         background-color: white; padding: 20px; border-radius: 15px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); margin-bottom: 15px;
         border-left: 6px solid #1e3a8a;
     }
 
-    /* تحسين المقاييس (Metrics) */
+    /* تحسين شكل المقاييس (Metrics) */
     [data-testid="stMetric"] {
         background-color: #f1f5f9; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0;
     }
     [data-testid="stMetricLabel"] { font-weight: 700 !important; color: #64748b !important; font-size: 0.8rem !important; }
     [data-testid="stMetricValue"] { color: #1e3a8a !important; font-size: 1.3rem !important; }
 
-    /* العناوين والأزرار */
+    /* العناوين الرئيسية */
     .main-title { color: #1e3a8a; font-weight: 800; font-size: 2.2rem; margin-bottom: 20px; letter-spacing: -1px; }
+    
+    /* تصميم الأزرار */
     .stButton>button {
         border-radius: 10px; background-color: #1e3a8a; color: white;
-        border: none; transition: all 0.3s;
+        border: none; transition: all 0.3s; width: 100%;
     }
     .stButton>button:hover { background-color: #2563eb; transform: translateY(-2px); }
     </style>
     """, unsafe_allow_html=True)
 
-# دالات مساعدة
+# دالات معالجة الملفات
 def save_file(uploaded_file, name):
     with open(name, "wb") as f:
         f.write(uploaded_file.getbuffer())
@@ -68,6 +68,11 @@ def color_net_staffing(val):
     except: pass
     return ''
 
+# دالة لتلوين خلايا الجدول في الـ Scheduling بدلاً من matplotlib
+def highlight_coverage(val):
+    color = '#e3f2fd' if val > 0 else 'white'
+    return f'background-color: {color}'
+
 # --- 2. نظام تسجيل الدخول ---
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -78,7 +83,7 @@ if not st.session_state["authenticated"]:
     with col:
         user = st.text_input("Username")
         pw = st.text_input("Password", type="password")
-        if st.button("Access Dashboard", use_container_width=True):
+        if st.button("Access Dashboard"):
             if user == "Raafat Mostafa" and pw == "Rr#01010353831":
                 st.session_state["authenticated"] = True
                 st.rerun()
@@ -86,7 +91,7 @@ if not st.session_state["authenticated"]:
                 st.error("❌ Invalid Credentials")
     st.stop()
 
-# --- 3. محتوى البرنامج الرئيسي ---
+# --- 3. التطبيق الرئيسي ---
 st.markdown('<h1 class="main-title">Workforce Management Suite</h1>', unsafe_allow_html=True)
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Req", "🗓️ Scheduling", "⚖️ Net Staffing"])
 
@@ -119,7 +124,6 @@ with tab1:
             lang = str(row.iloc[0]); target_hrs = float(row.iloc[1])
             act_hc = float(row.iloc[2]); shrink = float(row.iloc[3])
             shrink_p = shrink / 100 if shrink > 1 else shrink
-            
             act_hrs = (act_hc * base_hrs_per_person) * (1 - shrink_p)
             req_hc = np.ceil(target_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
             
@@ -156,6 +160,7 @@ with tab3:
         st.subheader(f"🗓️ Workforce Coverage: {lang}")
         try:
             df_s = pd.read_excel("sched_last.xlsx", sheet_name=lang)
+            # تعيين الأعمدة بناءً على التنسيق الموضح في صورتك
             df_s.columns = ['Day', 'Name', 'Start Time', 'End Time'] + list(df_s.columns[4:])
             df_s['Day'] = pd.to_datetime(df_s['Day']).dt.date
             
@@ -165,13 +170,12 @@ with tab3:
 
             def to_min(t_input):
                 if isinstance(t_input, (datetime, time)): return t_input.hour * 60 + t_input.minute
-                ts = pd.to_datetime(str(t_input))
-                return ts.hour * 60 + ts.minute
+                return pd.to_datetime(str(t_input)).hour * 60 + pd.to_datetime(str(t_input)).minute
 
             for _, r in df_s.iterrows():
                 if pd.isna(r['Day']): continue
                 st_str, en_str = str(r['Start Time']).upper(), str(r['End Time']).upper()
-                if "OFF" in st_str or "NAN" in st_str: continue
+                if "OFF" in st_str or "NAN" in st_str or st_str == "": continue
 
                 try:
                     s_m = to_min(r['Start Time']); e_m = to_min(r['End Time'])
@@ -180,9 +184,9 @@ with tab3:
                         d_str = r['Day'].strftime('%Y-%m-%d')
                         if d_str not in df_cov.columns: continue
 
-                        if s_m < e_m:
+                        if s_m < e_m: # شيفت نهاري
                             if s_m <= sl_m < e_m: df_cov.at[slot, d_str] += 1
-                        else: # Night Shift
+                        else: # شيفت ليلي (Night Shift)
                             if sl_m >= s_m: df_cov.at[slot, d_str] += 1
                             elif sl_m < e_m:
                                 nxt = (r['Day'] + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
@@ -190,8 +194,9 @@ with tab3:
                 except: continue
 
             st.session_state['df_cov'] = df_cov
-            st.dataframe(df_cov.style.background_gradient(cmap="Blues"), use_container_width=True)
-        except Exception as e: st.error(f"Error: {e}")
+            # تم استبدال background_gradient لتجنب خطأ matplotlib
+            st.dataframe(df_cov.style.applymap(highlight_coverage), use_container_width=True)
+        except Exception as e: st.error(f"Error processing schedules: {e}")
 
 with tab4:
     lang = st.session_state.get('active_lang')
@@ -203,4 +208,4 @@ with tab4:
         if common:
             df_net = d_cov[common] - d_intra[common]
             st.dataframe(df_net.style.map(color_net_staffing), use_container_width=True)
-    else: st.info("Please upload data and select a language first.")
+    else: st.info("Please select a language scope in 'Resource Req' first.")
