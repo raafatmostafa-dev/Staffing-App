@@ -164,7 +164,7 @@ if not st.session_state["authenticated"]:
     with col:
         st.markdown("""
             <div class="login-card">
-                <div class="brand-name">WFM Data</div>
+                <div class="brand-name">WFM analytics</div>
                 <div class="brand-sub">Next-Gen Analytics Portal</div>
             </div>
         """, unsafe_allow_html=True)
