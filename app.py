@@ -164,23 +164,22 @@ if not st.session_state["authenticated"]:
     with col:
         st.markdown("""
             <div class="login-card">
-                <div class="brand-name">WFM Analytics</div>
-                <div class="brand-sub">Next-Gen Analytics Portal</div>
+                <div style="font-size:2.6rem; color:white; font-weight:800;">WFM Data</div>
+                <div style="color:rgba(255,255,255,0.6); letter-spacing:2px;">ANALYTICS PORTAL</div>
             </div>
         """, unsafe_allow_html=True)
         
-       user = st.text_input("Username", placeholder="Identity")
+        # تأكد إن الأسطر اللي جاية دي كلها على نفس مستوى البداية (محاذية لبعض)
+        user = st.text_input("Username", placeholder="Identity")
         pw = st.text_input("Password", type="password", placeholder="••••••••")
         
-        # بنعمل متغير بيسمع لو دوست على الزرار
         submit_button = st.button("Authenticate System", use_container_width=True)
         
-        # التحقق: لو دوست الزرار "أو" دوست انتر (يعني القيمتين مش فاضيين)
-        if submit_button or (user and pw):
+        # منطق الدخول بالـ Enter أو الزرار
+        if submit_button or (user == "Raafat Mostafa" and pw == "Rr#01010353831"):
             if user == "Raafat Mostafa" and pw == "Rr#01010353831":
                 st.session_state["authenticated"] = True
                 st.rerun()
-            # بنظهر الخطأ فقط لو الزرار اتداس والبيانات غلط عشان ميبقاش شكلها وحش أول ما تفتح
             elif submit_button:
                 st.error("🔒 Security Mismatch")
     st.stop()
