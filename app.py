@@ -4,63 +4,46 @@ import numpy as np
 from datetime import date, datetime, time
 import os
 
-# --- 1. إعدادات الصفحة والتصميم الفاخر (Elegant Chic) ---
+# --- 1. إعدادات الواجهة (Elegant Professional Design) ---
 st.set_page_config(page_title="WFM Professional Suite", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
-    /* تحسين الخلفية العامة */
     .stApp { background-color: #f8f9fa; }
-    
-    /* إخفاء العناصر غير الضرورية */
     [data-testid="stSidebar"] { display: none; }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 
-    /* تصميم التبويبات Tabs */
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; background-color: transparent; }
+    /* تصميم التبويبات */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
     .stTabs [data-baseweb="tab"] {
         height: 50px; background-color: white; border-radius: 12px 12px 0px 0px;
-        padding: 10px 25px; font-weight: 600; color: #4b5563; border: none;
+        padding: 10px 25px; font-weight: 600; color: #4b5563;
         box-shadow: 0px 2px 5px rgba(0,0,0,0.05);
     }
     .stTabs [aria-selected="true"] {
-        background-color: #ffffff !important; color: #1e3a8a !important;
-        border-bottom: 3px solid #1e3a8a !important;
+        color: #1e3a8a !important; border-bottom: 3px solid #1e3a8a !important;
     }
 
-    /* كروت اللغات */
+    /* كروت البيانات */
     .language-card {
         background-color: white; padding: 20px; border-radius: 15px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); margin-bottom: 15px;
         border-left: 6px solid #1e3a8a;
     }
 
-    /* تحسين شكل المقاييس Metrics */
-    [data-testid="stMetric"] {
-        background-color: #ffffff; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0;
-    }
-    [data-testid="stMetricLabel"] { font-weight: 700 !important; color: #64748b !important; font-size: 0.8rem !important; }
-    [data-testid="stMetricValue"] { color: #1e3a8a !important; font-size: 1.3rem !important; }
-
-    .main-title { color: #1e3a8a; font-weight: 800; font-size: 2.2rem; margin-bottom: 20px; letter-spacing: -1px; }
-    
-    .stButton>button {
-        border-radius: 10px; background-color: #1e3a8a; color: white;
-        border: none; transition: all 0.3s; width: 100%;
-    }
-    .stButton>button:hover { background-color: #2563eb; transform: translateY(-2px); }
+    .main-title { color: #1e3a8a; font-weight: 800; font-size: 2.2rem; margin-bottom: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
-# دالات المساعدة
+# دالات مساعدة
 def save_file(uploaded_file, name):
     with open(name, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
 def color_net_staffing(val):
-    if val < 0: return 'background-color: #ffebee; color: #b71c1c; font-weight: bold' # عجز
-    if val > 0: return 'background-color: #e8f5e9; color: #1b5e20' # زيادة
+    if val < 0: return 'background-color: #ffebee; color: #b71c1c; font-weight: bold' # عجز (أحمر)
+    if val > 0: return 'background-color: #e8f5e9; color: #1b5e20' # زيادة (أخضر)
     return ''
 
 # --- 2. نظام تسجيل الدخول ---
@@ -68,28 +51,27 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.markdown("<div style='text-align: center; margin-top: 100px;'><h1 style='color:#1e3a8a;'>🔒 WFM Secure Access</h1></div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; margin-top: 100px;'><h1 style='color:#1e3a8a;'>🔒 WFM Login</h1></div>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 1, 1])
     with col:
         user = st.text_input("Username")
         pw = st.text_input("Password", type="password")
-        if st.button("Login"):
+        if st.button("Access Dashboard", use_container_width=True):
             if user == "Raafat Mostafa" and pw == "Rr#01010353831":
                 st.session_state["authenticated"] = True
                 st.rerun()
-            else:
-                st.error("❌ Invalid Credentials")
+            else: st.error("❌ خطأ في البيانات")
     st.stop()
 
-# --- 3. محتوى البرنامج الرئيسي ---
+# --- 3. التطبيق الرئيسي ---
 st.markdown('<h1 class="main-title">Workforce Management Suite</h1>', unsafe_allow_html=True)
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Req", "🗓️ Scheduling", "⚖️ Net Staffing"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity", "🎯 Resource Req", "🗓️ Scheduling", "⚖️ Net Staffing"])
 
 with tab1:
-    with st.expander("⚙️ Configuration & Data Source", expanded=False):
+    with st.expander("⚙️ Configuration", expanded=False):
         c1, c2, c3 = st.columns(3)
         with c1:
-            d_range = st.date_input("Analysis Period", [date(2026, 4, 1), date(2026, 4, 30)]) #
+            d_range = st.date_input("Analysis Period", [date(2026, 4, 1), date(2026, 4, 30)])
         with c2:
             up_main = st.file_uploader("Upload Data.xlsx", type=["xlsx"])
             if up_main: save_file(up_main, "data_last.xlsx")
@@ -124,26 +106,25 @@ with tab2:
     if os.path.exists("intra_last.xlsx"):
         xls = pd.ExcelFile("intra_last.xlsx")
         avail_langs = [s for s in xls.sheet_names if "Sheet" not in s]
-        op_lang = st.selectbox("🎯 Select Active Language", avail_langs)
+        op_lang = st.selectbox("🎯 Select Language", avail_langs)
         st.session_state['active_lang'] = op_lang
         df_raw = pd.read_excel("intra_last.xlsx", sheet_name=op_lang, header=None)
         if not df_raw.empty:
             cols = ["Intervals"] + [pd.to_datetime(d).strftime('%Y-%m-%d') for d in df_raw.iloc[0, 1:]]
             df_intra = df_raw.drop(0); df_intra.columns = cols
             df_intra.set_index("Intervals", inplace=True)
-            st.session_state['df_intra_data'] = df_intra.apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
-            st.dataframe(st.session_state['df_intra_data'], use_container_width=True)
+            st.session_state['df_intra_final'] = df_intra.apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
+            st.dataframe(st.session_state['df_intra_final'], use_container_width=True)
 
 with tab3:
     lang = st.session_state.get('active_lang')
     if os.path.exists("sched_last.xlsx") and lang:
-        st.subheader(f"🗓️ Staff Coverage: {lang}")
         try:
             xls_s = pd.ExcelFile("sched_last.xlsx")
             sheet = next((s for s in xls_s.sheet_names if s.lower() == lang.lower()), None)
             if sheet:
                 df_s = pd.read_excel("sched_last.xlsx", sheet_name=sheet)
-                df_s.columns = ['Day', 'Name', 'Start', 'End'] + list(df_s.columns[4:]) #
+                df_s.columns = ['Day', 'Name', 'Start', 'End'] + list(df_s.columns[4:])
                 df_s['Day'] = pd.to_datetime(df_s['Day']).dt.date
                 
                 intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
@@ -151,39 +132,36 @@ with tab3:
                 df_cov = pd.DataFrame(0, index=intervals, columns=[d.strftime('%Y-%m-%d') for d in target_dates])
 
                 def to_min(v):
-                    if pd.isna(v) or str(v).strip().upper() in ["OFF", "NAN", ""]: return None #
-                    t = pd.to_datetime(str(v)).time()
-                    return t.hour * 60 + t.minute
+                    if pd.isna(v) or str(v).strip().upper() in ["OFF", "NAN", ""]: return None
+                    return pd.to_datetime(str(v)).hour * 60 + pd.to_datetime(str(v)).minute
 
                 for _, r in df_s.iterrows():
                     s_m, e_m = to_min(r['Start']), to_min(r['End'])
                     if s_m is None or pd.isna(r['Day']): continue
                     d_str = r['Day'].strftime('%Y-%m-%d')
-                    if d_str not in df_cov.columns: continue
-
-                    for slot in intervals:
-                        sl_m = int(slot[:2])*60 + int(slot[3:])
-                        if s_m < e_m: # شيفت عادي
-                            if s_m <= sl_m < e_m: df_cov.at[slot, d_str] += 1
-                        else: # شيفت ليلي
-                            if sl_m >= s_m: df_cov.at[slot, d_str] += 1
-                            elif sl_m < e_m:
-                                nxt = (r['Day'] + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-                                if nxt in df_cov.columns: df_cov.at[slot, nxt] += 1
+                    if d_str in df_cov.columns:
+                        for slot in intervals:
+                            sl_m = int(slot[:2])*60 + int(slot[3:])
+                            if s_m < e_m:
+                                if s_m <= sl_m < e_m: df_cov.at[slot, d_str] += 1
+                            else: # Night Shift
+                                if sl_m >= s_m: df_cov.at[slot, d_str] += 1
+                                elif sl_m < e_m:
+                                    nxt = (r['Day'] + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+                                    if nxt in df_cov.columns: df_cov.at[slot, nxt] += 1
                 
-                st.session_state['df_cov_data'] = df_cov
+                st.session_state['df_cov_final'] = df_cov
                 st.dataframe(df_cov.style.applymap(lambda v: 'background-color: #e3f2fd' if v > 0 else ''), use_container_width=True)
         except Exception as e: st.error(f"Error: {e}")
 
 with tab4:
-    # طرح السكادول ناقص الريكوايرد
-    if 'df_intra_data' in st.session_state and 'df_cov_data' in st.session_state:
-        d_intra = st.session_state['df_intra_data']
-        d_cov = st.session_state['df_cov_data'].reindex(d_intra.index).fillna(0).astype(int)
-        common = [c for c in d_cov.columns if c in d_intra.columns]
+    # الحساب النهائي: السكادول - الريكوايرد
+    if 'df_intra_final' in st.session_state and 'df_cov_final' in st.session_state:
+        d_req = st.session_state['df_intra_final']
+        d_sch = st.session_state['df_cov_final'].reindex(d_req.index).fillna(0).astype(int)
+        common = [c for c in d_sch.columns if c in d_req.columns]
         if common:
-            st.subheader(f"⚖️ Efficiency Gap: {st.session_state['active_lang']}")
-            df_net = d_cov[common] - d_intra[common] #
+            st.subheader(f"⚖️ Efficiency Gap (Schedules - Required): {lang}")
+            df_net = d_sch[common] - d_req[common] # المعادلة المطلوبة
             st.dataframe(df_net.style.applymap(color_net_staffing), use_container_width=True)
-    else:
-        st.info("💡 Please complete data uploads and language selection first.")
+    else: st.info("يرجى اختيار اللغة ورفع الملفات أولاً")
