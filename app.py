@@ -147,14 +147,75 @@ if not st.session_state["authenticated"]:
         }
 
         style>
-            /* استهداف حقول الإدخال بشكل مباشر */
-            .stTextInput input {
-                background-color: rgba(255, 255, 255, 0.9) !important; /* خلفية بيضاء شبه مصمتة لراحة العين */
-                color: #000000 !important; /* لون النص أسود صريح */
-                border-radius: 12px !important;
-                border: 2px solid rgba(0, 246, 255, 0.5) !important; /* إطار أزرق خفيف */
-                font-weight: 600 !important;
-            }
+           # --- 2. نظام تسجيل الدخول (التصحيح) ---
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    # تأكد أن كل الـ HTML بداخل st.markdown وبدون فراغات غريبة في بداية السطر
+    st.markdown("""
+        <style>
+        .stApp {
+            background: linear-gradient(rgba(1, 4, 17, 0.7), rgba(1, 4, 17, 0.8)), 
+                        url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+        }
+
+        .kalam-logo {
+            position: absolute;
+            top: 20px;
+            left: 30px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            font-size: 1.8rem;
+            color: #00F6FF;
+            text-shadow: 0 0 10px rgba(0, 246, 255, 0.5);
+            z-index: 999;
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(25px);
+            padding: 50px 40px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+        
+        .brand-name {
+            font-size: 2.6rem;
+            color: white;
+            font-weight: 800;
+        }
+
+        /* تعديل اليوزر والباسورد للون الأسود */
+        .stTextInput input {
+            background-color: white !important;
+            color: black !important;
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+        }
+        </style>
+        
+        <div class="kalam-logo">Kalam</div>
+        <div style='height: 100px;'></div>
+    """, unsafe_allow_html=True)
+    
+    _, col, _ = st.columns([1, 1.1, 1])
+    with col:
+        st.markdown('<div class="login-card"><div class="brand-name">WFM Data</div><div style="color:rgba(255,255,255,0.6);">Next-Gen Analytics</div></div>', unsafe_allow_html=True)
+        
+        user = st.text_input("Username", placeholder="Identity")
+        pw = st.text_input("Password", type="password", placeholder="••••••••")
+        
+        if st.button("Authenticate System", use_container_width=True):
+            if user == "Raafat Mostafa" and pw == "Rr#01010353831":
+                st.session_state["authenticated"] = True
+                st.rerun()
+            else:
+                st.error("🔒 Security Mismatch")
+    st.stop()
             
             /* جعل الـ Placeholder (النص التوضيحي) بلون رمادي داكن */
             .stTextInput input::placeholder {
