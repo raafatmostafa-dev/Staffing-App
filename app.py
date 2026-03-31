@@ -146,14 +146,22 @@ if not st.session_state["authenticated"]:
             letter-spacing: 2px;
         }
 
-        /* تحسين شكل حقول الإدخال لتناسب العمق */
-        .stTextInput input {
-            background: rgba(255, 255, 255, 0.1) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            color: white !important;
-            border-radius: 12px !important;
-        }
-        </style>
+        style>
+            /* استهداف حقول الإدخال بشكل مباشر */
+            .stTextInput input {
+                background-color: rgba(255, 255, 255, 0.9) !important; /* خلفية بيضاء شبه مصمتة لراحة العين */
+                color: #000000 !important; /* لون النص أسود صريح */
+                border-radius: 12px !important;
+                border: 2px solid rgba(0, 246, 255, 0.5) !important; /* إطار أزرق خفيف */
+                font-weight: 600 !important;
+            }
+            
+            /* جعل الـ Placeholder (النص التوضيحي) بلون رمادي داكن */
+            .stTextInput input::placeholder {
+                color: #4A4A4A !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
         
         <div class="kalam-logo">Kalam</div>
         
