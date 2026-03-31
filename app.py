@@ -31,7 +31,7 @@ st.markdown("""
     }
     .stTabs [data-baseweb="tab"] {
         height: 45px;
-        background-color: #FFFFFF;
+        background-color: #010411;
         border-radius: 8px;
         padding: 8px 20px;
         font-weight: 600;
