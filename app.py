@@ -225,44 +225,50 @@ with tab1:
         
         # 1. تجميع البيانات وحساب القيم
         chart_records = []
-        for _, row in df_all.iterrows():
-            l_name = str(row.iloc[0])
-            t_load = float(row.iloc[1])
-            a_hc = float(row.iloc[2])
-            s_val = float(row.iloc[3])
-            s_p = s_val / 100 if s_val > 1 else s_val 
-            s_cap = (a_hc * base_hrs_per_person) * (1 - s_p)
-            
-            chart_records.append({
-                "Language": l_name,
-                "Target Load": t_load,
-                "Supply Cap": s_cap
-            })
+  for _, row in df_plot.iterrows():
+    if row["Supply Cap"] >= row["Target Load"]:
+        colors.append('#00f6ff') # لون مميز للعواميد الناجحة (Cyan المتوهج)
+        annotations.append("✅")   # علامة صح
+    else:
+        colors.append('#1E3A8A') # اللون الكحلي العادي
+        annotations.append("")    # مفيش علامة
 
-        # 2. الترتيب الفعلي (Sorting)
-        df_plot = pd.DataFrame(chart_records).sort_values(by="Target Load", ascending=False)
-        
-        st.markdown("### 📊 Sorted Load vs Supply Analysis")
+# 2. رسم التشارت
+fig = go.Figure()
 
-        # 3. استخدام Plotly لضمان ثبات الترتيب (أكثر احترافية)
-        import plotly.graph_objects as go
+# إضافة عواميد Target Load
+fig.add_trace(go.Bar(
+    x=df_plot["Language"],
+    y=df_plot["Target Load"],
+    name="Target Load",
+    marker_color=colors, # تلوين العواميد بناءً على الحالة
+    text=annotations,    # إضافة علامة الصح
+    textposition='outside', # وضع العلامة فوق العامود
+    textfont=dict(size=18)  # تكبير علامة الصح لتكون واضحة
+))
 
-        fig = go.Figure()
-        fig.add_trace(go.Bar(x=df_plot["Language"], y=df_plot["Target Load"], name='Target Load', marker_color='#1E3A8A'))
-        fig.add_trace(go.Bar(x=df_plot["Language"], y=df_plot["Supply Cap"], name='Supply Cap', marker_color='#00F6FF'))
+# إضافة عواميد Supply Cap (اختياري لو عاوزها تظهر جنبها)
+fig.add_trace(go.Bar(
+    x=df_plot["Language"],
+    y=df_plot["Supply Cap"],
+    name="Supply Cap",
+    marker_color='#00D4FF',
+    opacity=0.6
+))
 
-        fig.update_layout(
-            barmode='group',
-            xaxis={'categoryorder':'total descending'}, # هذا السطر يضمن الترتيب التنازلي
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=0, r=0, t=20, b=0),
-            height=250,
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
+# 3. تنسيق التشارت ليكون "رايق"
+fig.update_layout(
+    title="Sorted Load vs Supply Analysis",
+    barmode='group',
+    paper_bgcolor='rgba(0,0,0,0)', # خلفية شفافة عشان تليق مع الديزاين العميق
+    plot_bgcolor='rgba(0,0,0,0)',
+    font=dict(color="white"),      # خط أبيض عشان يبان على الخلفية الغامقة
+    xaxis=dict(tickangle=-45),     # ميل أسماء اللغات لشكل أشيك
+    margin=dict(t=50, b=50, l=20, r=20),
+    showlegend=True
+)
+
+st.plotly_chart(fig, use_container_width=True)        
         st.markdown("<hr style='border: 0.5px solid #E2E8F0; margin: 40px 0;'>", unsafe_allow_html=True)
 
         # --- داخل حلقة عرض الكروت التفصيلية ---
