@@ -94,72 +94,90 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    # إضافة مساحة علوية
-    st.markdown("<div style='height: 120px;'></div>", unsafe_allow_html=True)
+    st.markdown("""
+        <style>
+        /* إضافة الخلفية العميقة باستخدام الصورة التي رفعتها */
+        .stApp {
+            background: linear-gradient(rgba(1, 4, 17, 0.7), rgba(1, 4, 17, 0.8)), 
+                        url('https://www.storyblocks.com/video/stock/digital-cyberspace-with-particles-and-digital-data-network-connections-high-speed-connection-and-data-analysis-technology-abstract-background-concept-bkp--fkwj4sh9u25');
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* شعار Kalam في الأعلى على الشمال */
+        .kalam-logo {
+            position: absolute;
+            top: 20px;
+            left: 30px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            font-size: 1.8rem;
+            color: #00F6FF; /* أزرق متوهج */
+            text-shadow: 0 0 10px rgba(0, 246, 255, 0.5);
+            z-index: 999;
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.05); /* شفافية عالية للعمق */
+            backdrop-filter: blur(25px) saturate(150%); /* تغبيش قوي */
+            padding: 50px 40px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+            text-align: center;
+            margin-bottom: -40px;
+        }
+        
+        .brand-name {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            font-size: 2.6rem;
+            color: white;
+            letter-spacing: -2px;
+            margin-bottom: 5px;
+            text-shadow: 0 0 20px rgba(255,255,255,0.2);
+        }
+        
+        .brand-sub {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* تحسين شكل حقول الإدخال لتناسب العمق */
+        .stTextInput input {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+            border-radius: 12px !important;
+        }
+        </style>
+        
+        <div class="kalam-logo">Kalam</div>
+        
+        <div style='height: 100px;'></div>
+    """, unsafe_allow_html=True)
     
     _, col, _ = st.columns([1, 1.1, 1])
     with col:
-        # تصميم الكارت الزجاجي (Glassmorphism)
         st.markdown("""
-            <style>
-            .login-card {
-                background: rgba(255, 255, 255, 0.7); /* خلفية بيضاء شفافة */
-                backdrop-filter: blur(15px); /* تأثير التغبيش الزجاجي */
-                padding: 50px 40px;
-                border-radius: 25px;
-                border: 1px solid rgba(255, 255, 255, 0.3);
-                box-shadow: 0 25px 50px rgba(0,0,0,0.05);
-                text-align: center;
-                margin-bottom: -40px;
-            }
-            .brand-name {
-                font-family: 'Inter', sans-serif;
-                font-weight: 800;
-                font-size: 2.4rem;
-                color: #1E3A8A;
-                letter-spacing: -1.5px;
-                margin-bottom: 5px;
-            }
-            .brand-sub {
-                color: #64748B;
-                font-size: 0.95rem;
-                margin-bottom: 30px;
-            }
-            /* تنسيق زر الدخول ليكون أكثر رقيًا */
-            div.stButton > button {
-                background-color: #1E3A8A !important;
-                color: white !important;
-                border-radius: 12px !important;
-                height: 50px !important;
-                font-weight: 600 !important;
-                border: none !important;
-                transition: all 0.3s ease !important;
-                width: 100% !important;
-            }
-            div.stButton > button:hover {
-                background-color: #1e40af !important;
-                box-shadow: 0 10px 20px rgba(30, 58, 138, 0.2) !important;
-                transform: translateY(-2px);
-            }
-            </style>
-            
             <div class="login-card">
                 <div class="brand-name">WFM Data</div>
-                <div class="brand-sub">Secure access to workforce analytics</div>
+                <div class="brand-sub">Next-Gen Analytics Portal</div>
             </div>
         """, unsafe_allow_html=True)
         
-        # حقول الإدخال خارج الـ div لتجنب مشاكل streamlit
-        user = st.text_input("Username", placeholder="Enter your identity")
+        user = st.text_input("Username", placeholder="Identity")
         pw = st.text_input("Password", type="password", placeholder="••••••••")
         
-        if st.button("Authenticate System"):
+        if st.button("Authenticate System", use_container_width=True):
             if user == "Raafat Mostafa" and pw == "Rr#01010353831":
                 st.session_state["authenticated"] = True
-                st.success("Access Granted")
                 st.rerun()
             else:
-                st.error("🔒 Security mismatch. Check credentials.")
+                st.error("🔒 Security Mismatch")
     st.stop()
 
 # --- 3. التطبيق الرئيسي ---
