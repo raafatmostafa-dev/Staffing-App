@@ -226,7 +226,7 @@ with tab1:
         # 1. تجميع البيانات وحساب القيم
         chart_records = []
         for _, row in df_plot.iterrows():
-    if row["Supply Cap"] >= row["Target Load"]:
+        if row["Supply Cap"] >= row["Target Load"]:
         colors.append('#00f6ff') # لون مميز للعواميد الناجحة (Cyan المتوهج)
         annotations.append("✅")   # علامة صح
     else:
