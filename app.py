@@ -5,20 +5,83 @@ from datetime import date, datetime, time
 import os
 import base64
 
-# --- 1. إعدادات الصفحة ---
+# --- 1. إعدادات الصفحة والتصميم الفاخر ---
 st.set_page_config(page_title="WFM Professional Suite", layout="wide", initial_sidebar_state="collapsed")
 
-# إخفاء الشريط الجانبي تماماً عبر CSS
+# تصميم CSS متقدم "Chic & Minimalist"
 st.markdown("""
     <style>
-    [data-testid="stSidebar"] {
-        display: none;
+    /* تحسين الخطوط والخلفية */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+    
+    html, body, [class*="css"]  {
+        font-family: 'Inter', sans-serif;
+        background-color: #FBFBFE;
     }
-    [data-testid="stSidebarNav"] {
-        display: none;
-    }
+
+    /* إخفاء العناصر غير الضرورية */
+    [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display: none; }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+
+    /* تصميم الـ Tabs لتبدو كأزرار احترافية */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: transparent;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 45px;
+        background-color: #FFFFFF;
+        border-radius: 8px;
+        padding: 8px 20px;
+        font-weight: 600;
+        color: #64748B;
+        border: 1px solid #E2E8F0;
+        transition: all 0.3s ease;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #1E3A8A !important;
+        color: white !important;
+        border: 1px solid #1E3A8A !important;
+        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.2);
+    }
+
+    /* كروت البيانات (Cards) */
+    .metric-card {
+        background-color: #FFFFFF;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #F1F5F9;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        transition: transform 0.2s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+    }
+
+    /* تحسين شكل الـ Metric الافتراضي لستريمليت */
+    [data-testid="stMetric"] {
+        background: white;
+        border: 1px solid #F1F5F9;
+        padding: 15px;
+        border-radius: 10px;
+    }
+    
+    /* العناوين */
+    .main-header {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #0F172A;
+        letter-spacing: -1px;
+        margin-bottom: 30px;
+    }
+    
+    /* تنسيق الجداول */
+    .styled-table {
+        border-radius: 10px;
+        overflow: hidden;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -26,37 +89,37 @@ def save_file(uploaded_file, name):
     with open(name, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
-# --- 2. نظام تسجيل الدخول ---
+# --- 2. نظام تسجيل الدخول (تصميم أنيق) ---
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.markdown("<h2 style='text-align: center;'>🔒 WFM Secure Access</h2>", unsafe_allow_html=True)
-    _, col, _ = st.columns([1, 1, 1])
+    st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
+    _, col, _ = st.columns([1, 1.2, 1])
     with col:
-        user = st.text_input("Username")
-        pw = st.text_input("Password", type="password")
-        if st.button("Login", use_container_width=True):
+        st.markdown("""
+            <div style='background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: 1px solid #F1F5F9;'>
+                <h2 style='text-align: center; color: #1E3A8A; font-weight: 800;'>WFM Suite</h2>
+                <p style='text-align: center; color: #64748B; margin-bottom: 30px;'>Enter your credentials to access the portal</p>
+            </div>
+        """, unsafe_allow_html=True)
+        user = st.text_input("Username", placeholder="e.g. Admin")
+        pw = st.text_input("Password", type="password", placeholder="••••••••")
+        if st.button("Authorize Access", use_container_width=True):
             if user == "Raafat Mostafa" and pw == "Rr#01010353831":
                 st.session_state["authenticated"] = True
                 st.rerun()
             else:
-                st.error("❌ بيانات الدخول غير صحيحة")
+                st.error("🔒 Unauthorized Credentials")
     st.stop()
 
-# --- 3. تشغيل التطبيق (بعد الدخول) ---
-st.markdown("""
-    <style>
-    .stApp { background-color: #FFFFFF; }
-    [data-testid="stMetricValue"] { font-size: 1.5rem !important; color: #1E3A8A !important; }
-    .main-header { font-size: 1.2rem; font-weight: bold; color: #1E3A8A; border-bottom: 2px solid #EEEEEE; padding-bottom: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- 3. التطبيق الرئيسي ---
+st.markdown('<h1 class="main-header">Workforce Management Dashboard</h1>', unsafe_allow_html=True)
 
 def color_net_staffing(val):
     try:
-        if val < 0: return 'background-color: #ffcccc; color: #900000; font-weight: bold'
-        if val > 0: return 'background-color: #ccffcc; color: #006600'
+        if val < 0: return 'background-color: #FFF1F2; color: #BE123C; font-weight: bold; border: 1px solid #FECDD3'
+        if val > 0: return 'background-color: #F0FDF4; color: #15803D; border: 1px solid #DCFCE7'
     except: pass
     return ''
 
@@ -65,24 +128,22 @@ def format_time_index(t):
     try: return pd.to_datetime(str(t)).strftime('%H:%M')
     except: return str(t)
 
-# --- 4. Tabs Setup ---
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Capacity Dashboard", "🎯 Resource Requirements", "🗓️ Scheduling", "⚖️ Net Staffing"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Executive Summary", "🎯 Requirements", "🗓️ Schedule View", "⚖️ Delta Analysis"])
 
 with tab1:
-    # تم نقل أدوات الإعدادات هنا لأن الشريط الجانبي مخفي الآن
-    with st.expander("⚙️ Configuration & Uploads", expanded=False):
+    with st.expander("🛠️ Control Panel & Data Ingestion", expanded=False):
         c1, c2, c3 = st.columns(3)
         with c1:
-            d_range = st.date_input("Analysis Period", [date(2026, 4, 1), date(2026, 4, 30)])
+            d_range = st.date_input("Analysis Window", [date(2026, 4, 1), date(2026, 4, 30)])
         with c2:
-            up_main = st.file_uploader("Upload Data.xlsx", type=["xlsx"])
+            up_main = st.file_uploader("Upload Core Data", type=["xlsx"])
             if up_main: save_file(up_main, "data_last.xlsx")
         with c3:
-            up_intra = st.file_uploader("Upload Requirements.xlsx", type=["xlsx"])
+            up_intra = st.file_uploader("Upload Intrady Requirements", type=["xlsx"])
             if up_intra: save_file(up_intra, "intra_last.xlsx")
-            up_sched = st.file_uploader("Upload Schedules.xlsx", type=["xlsx"])
+            up_sched = st.file_uploader("Upload Master Schedules", type=["xlsx"])
             if up_sched: save_file(up_sched, "sched_last.xlsx")
-            if st.button("Logout"):
+            if st.button("Terminate Session", type="secondary"):
                 st.session_state["authenticated"] = False
                 st.rerun()
 
@@ -93,7 +154,8 @@ with tab1:
         df_all = pd.read_excel("data_last.xlsx", sheet_name=0)
         working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
         base_hrs_per_person = working_days * 8
-        st.markdown('<p class="main-header">🌍 Global Fleet Capacity Analysis</p>', unsafe_allow_html=True)
+        
+        st.markdown("<div style='margin-bottom: 25px;'></div>", unsafe_allow_html=True)
 
         for _, row in df_all.iterrows():
             lang_name = str(row.iloc[0])
@@ -107,21 +169,30 @@ with tab1:
             req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
             hc_variance = actual_hc_count - req_hc
 
-            with st.expander(f"🚩 Language: {lang_name.upper()}", expanded=True):
+            # تصميم الكارت الخاص بكل لغة
+            with st.container():
+                st.markdown(f"""
+                    <div style='background: #1E3A8A; padding: 10px 20px; border-radius: 10px 10px 0 0; color: white;'>
+                        <span style='font-weight: 800; font-size: 1.1rem;'>🌍 LANGUAGE GROUP: {lang_name.upper()}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
                 m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
-                m1.metric("Tgt Hrs", f"{int(target_workload_hrs):,}h")
-                m2.metric("Act Hrs", f"{int(actual_available_hrs):,}h")
-                m3.metric("Hrs Var", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
-                m4.metric("Shrink %", f"{shrink_p*100:.1f}%")
-                m5.metric("Req HC", f"{int(req_hc)}")
-                m6.metric("Act HC", f"{int(actual_hc_count)}")
+                m1.metric("Target Load", f"{int(target_workload_hrs):,}h")
+                m2.metric("Supply Cap", f"{int(actual_available_hrs):,}h")
+                m3.metric("Hrs Delta", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
+                m4.metric("Shrinkage", f"{shrink_p*100:.1f}%")
+                m5.metric("Required HC", f"{int(req_hc)}")
+                m6.metric("Active HC", f"{int(actual_hc_count)}")
                 m7.metric("HC Gap", f"{int(hc_variance)}", delta=int(hc_variance))
+                st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
 
 with tab2:
     if os.path.exists("intra_last.xlsx"):
         xls = pd.ExcelFile("intra_last.xlsx")
         avail_langs = [s for s in xls.sheet_names if "Sheet" not in s]
-        op_lang = st.selectbox("🎯 Select Language", avail_langs, key="op_filter")
+        st.markdown("### 🎯 Resource Profiling")
+        op_lang = st.selectbox("Active Viewport:", avail_langs, key="op_filter")
         st.session_state['active_lang'] = op_lang
         
         df_raw = pd.read_excel("intra_last.xlsx", sheet_name=op_lang, header=None)
@@ -132,12 +203,12 @@ with tab2:
             df_intra['Intervals'] = df_intra['Intervals'].apply(format_time_index)
             final_df_intra = df_intra.set_index('Intervals').apply(pd.to_numeric, errors='coerce').fillna(0).round(0).astype(int)
             st.session_state['df_intra'] = final_df_intra
-            st.dataframe(final_df_intra, use_container_width=True)
+            st.dataframe(final_df_intra.style.background_gradient(cmap="Blues", axis=None), use_container_width=True)
 
 with tab3:
     lang = st.session_state.get('active_lang')
     if os.path.exists("sched_last.xlsx") and lang:
-        st.subheader(f"🗓️ Staff Coverage: {lang}")
+        st.markdown(f"### 🗓️ Coverage Heatmap: <span style='color:#1E3A8A'>{lang}</span>", unsafe_allow_html=True)
         try:
             df_s = pd.read_excel("sched_last.xlsx", sheet_name=lang)
             df_s['Day'] = pd.to_datetime(df_s['Day']).dt.date
@@ -171,14 +242,14 @@ with tab3:
                 except: continue
 
             st.session_state['df_cov'] = df_coverage
-            st.dataframe(df_coverage, use_container_width=True)
+            st.dataframe(df_coverage.style.background_gradient(cmap="Greens", axis=None), use_container_width=True)
         except Exception as e:
-            st.error(f"⚠️ مشكلة فنية: {e}")
+            st.error(f"⚠️ Technical Alert: {e}")
 
 with tab4:
     lang = st.session_state.get('active_lang')
     if 'df_intra' in st.session_state and 'df_cov' in st.session_state:
-        st.subheader(f"⚖️ Efficiency Analysis: {lang}")
+        st.markdown(f"### ⚖️ Net Staffing Variance: <span style='color:#1E3A8A'>{lang}</span>", unsafe_allow_html=True)
         d_intra = st.session_state['df_intra']
         d_cov = st.session_state['df_cov'].reindex(d_intra.index).fillna(0).astype(int)
         common_cols = [c for c in d_cov.columns if c in d_intra.columns]
@@ -186,4 +257,4 @@ with tab4:
             df_net = d_cov[common_cols] - d_intra[common_cols]
             st.dataframe(df_net.style.map(color_net_staffing), use_container_width=True)
     else:
-        st.info("قم برفع البيانات أولاً واختيار اللغة لتظهر تحليلات الفجوات.")
+        st.info("💡 Awaiting data ingestion. Please upload files and select a scope to view delta analysis.")
