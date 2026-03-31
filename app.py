@@ -118,7 +118,7 @@ if not st.session_state["authenticated"]:
         }
 
         .login-card {
-            background: rgba(255, 255, 255, 0.05); /* شفافية عالية للعمق */
+            background: rgba(255, 255, 255, 0.05); /* اسود عالية للعمق */
             backdrop-filter: blur(25px) saturate(150%); /* تغبيش قوي */
             padding: 50px 40px;
             border-radius: 30px;
