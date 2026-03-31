@@ -265,33 +265,53 @@ with tab1:
         
         st.markdown("<hr style='border: 0.5px solid #E2E8F0; margin: 40px 0;'>", unsafe_allow_html=True)
 
-        # 4. عرض الكروت بناءً على نفس الترتيب
-        for _, row_data in df_plot.iterrows():
-            lang_name = row_data["Language"]
-            target_workload_hrs = row_data["Target Load"]
-            actual_available_hrs = row_data["Supply Cap"]
-            
-            # جلب باقي البيانات من الجدول الأصلي للكروت
-            orig = df_all[df_all.iloc[:, 0] == lang_name].iloc[0]
-            act_hc = float(orig.iloc[2])
-            shrink_val = float(orig.iloc[3])
-            shrink_p = shrink_val / 100 if shrink_val > 1 else shrink_val 
+        # --- داخل حلقة عرض الكروت التفصيلية ---
+for _, row_data in df_plot.iterrows():
+    lang_name = row_data["Language"]
+    target_workload_hrs = row_data["Target Load"]
+    actual_available_hrs = row_data["Supply Cap"]
+    
+    # تحديد لون الهايلايت بناءً على الشرط
+    # إذا كان الـ Supply أكبر من أو يساوي الـ Target، نستخدم اللون الأخضر، وإلا نستخدم الكحلي المعتاد
+    if actual_available_hrs >= target_workload_hrs:
+        header_color = "#065F46"  # أخضر داكن شيك (Emerald Green)
+        status_icon = "✅"
+        badge_text = "SURPLUS"
+    else:
+        header_color = "#1E3A8A"  # الكحلي المعتاد
+        status_icon = "🌍"
+        badge_text = ""
 
-            hrs_variance = actual_available_hrs - target_workload_hrs
-            req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
-            hc_var = act_hc - req_hc
+    # جلب باقي البيانات
+    orig = df_all[df_all.iloc[:, 0] == lang_name].iloc[0]
+    act_hc = float(orig.iloc[2])
+    shrink_val = float(orig.iloc[3])
+    shrink_p = shrink_val / 100 if shrink_val > 1 else shrink_val 
 
-            with st.container():
-                st.markdown(f"<div style='background: #1E3A8A; padding: 10px 20px; border-radius: 10px 10px 0 0; color: white;'><span style='font-weight: 800;'>🌍 {lang_name.upper()}</span></div>", unsafe_allow_html=True)
-                m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
-                m1.metric("Target Load", f"{int(target_workload_hrs):,}h")
-                m2.metric("Supply Cap", f"{int(actual_available_hrs):,}h")
-                m3.metric("Hrs Delta", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
-                m4.metric("Shrinkage", f"{shrink_p*100:.1f}%")
-                m5.metric("Required HC", int(req_hc))
-                m6.metric("Active HC", int(act_hc))
-                m7.metric("HC Gap", int(hc_var), delta=int(hc_var))
-                st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+    hrs_variance = actual_available_hrs - target_workload_hrs
+    req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
+    hc_var = act_hc - req_hc
+
+    with st.container():
+        # استخدام اللون الديناميكي في الـ background
+        st.markdown(f"""
+            <div style='background: {header_color}; padding: 12px 20px; border-radius: 10px 10px 0 0; color: white; display: flex; justify-content: space-between; align-items: center;'>
+                <span style='font-weight: 800; font-size: 1.1rem;'>{status_icon} LANGUAGE GROUP: {lang_name.upper()}</span>
+                {f"<span style='background: rgba(255,255,255,0.2); padding: 2px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold;'>{badge_text}</span>" if badge_text else ""}
+            </div>
+        """, unsafe_allow_html=True)
+        
+        m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
+        m1.metric("Target Load", f"{int(target_workload_hrs):,}h")
+        m2.metric("Supply Cap", f"{int(actual_available_hrs):,}h")
+        
+        # تلوين الـ Delta تلقائياً مدمج في st.metric
+        m3.metric("Hrs Delta", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
+        m4.metric("Shrinkage", f"{shrink_p*100:.1f}%")
+        m5.metric("Required HC", int(req_hc))
+        m6.metric("Active HC", int(act_hc))
+        m7.metric("HC Gap", int(hc_var), delta=int(hc_var))
+        st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
 with tab2:
     if os.path.exists("intra_last.xlsx"):
         xls = pd.ExcelFile("intra_last.xlsx")
