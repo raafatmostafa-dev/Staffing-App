@@ -143,9 +143,6 @@ with tab1:
             if up_intra: save_file(up_intra, "intra_last.xlsx")
             up_sched = st.file_uploader("Upload Master Schedules", type=["xlsx"])
             if up_sched: save_file(up_sched, "sched_last.xlsx")
-            if st.button("Terminate Session", type="secondary"):
-                st.session_state["authenticated"] = False
-                st.rerun()
 
     start_date = d_range[0]
     end_date = d_range[1] if len(d_range) > 1 else d_range[0]
@@ -155,9 +152,7 @@ with tab1:
         working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
         base_hrs_per_person = working_days * 8
         
-        st.markdown("<div style='margin-bottom: 25px;'></div>", unsafe_allow_html=True)
-
-        # 1. تجميع البيانات وحساب الـ Supply Cap
+        # 1. تجميع البيانات وحساب القيم
         chart_records = []
         for _, row in df_all.iterrows():
             l_name = str(row.iloc[0])
@@ -173,49 +168,58 @@ with tab1:
                 "Supply Cap": s_cap
             })
 
-        # 2. تحويل البيانات لـ DataFrame والترتيب من الأكبر للأصغر
-        df_chart = pd.DataFrame(chart_records)
-        # الترتيب بناءً على Target Load تنازلياً
-        df_chart = df_chart.sort_values(by="Target Load", ascending=False).set_index("Language")
+        # 2. الترتيب الفعلي (Sorting)
+        df_plot = pd.DataFrame(chart_records).sort_values(by="Target Load", ascending=False)
         
-        st.markdown("### 📊 Sorted Load vs Supply Analysis (High to Low)")
+        st.markdown("### 📊 Sorted Load vs Supply Analysis")
+
+        # 3. استخدام Plotly لضمان ثبات الترتيب (أكثر احترافية)
+        import plotly.graph_objects as go
+
+        fig = go.Figure()
+        fig.add_trace(go.Bar(x=df_plot["Language"], y=df_plot["Target Load"], name='Target Load', marker_color='#1E3A8A'))
+        fig.add_trace(go.Bar(x=df_plot["Language"], y=df_plot["Supply Cap"], name='Supply Cap', marker_color='#00F6FF'))
+
+        fig.update_layout(
+            barmode='group',
+            xaxis={'categoryorder':'total descending'}, # هذا السطر يضمن الترتيب التنازلي
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=0, r=0, t=20, b=0),
+            height=400,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
         
-        # 3. عرض الرسم البياني المرتب
-        st.bar_chart(df_chart, color=["#1E3A8A", "#00F6FF"])
+        st.plotly_chart(fig, use_container_width=True)
         
         st.markdown("<hr style='border: 0.5px solid #E2E8F0; margin: 40px 0;'>", unsafe_allow_html=True)
 
-        # 4. عرض الكروت التفصيلية (بنفس ترتيب التشارت لراحة العين)
-        for lang_name, row_data in df_chart.iterrows():
-            # استخراج القيم من البيانات المرتبة
+        # 4. عرض الكروت بناءً على نفس الترتيب
+        for _, row_data in df_plot.iterrows():
+            lang_name = row_data["Language"]
             target_workload_hrs = row_data["Target Load"]
             actual_available_hrs = row_data["Supply Cap"]
             
-            # استخراج القيم الأصلية من الملف للكروت (للحصول على الـ Shrinkage والـ HC)
-            original_row = df_all[df_all.iloc[:, 0] == lang_name].iloc[0]
-            actual_hc_count = float(original_row.iloc[2])
-            shrink_val = float(original_row.iloc[3])
+            # جلب باقي البيانات من الجدول الأصلي للكروت
+            orig = df_all[df_all.iloc[:, 0] == lang_name].iloc[0]
+            act_hc = float(orig.iloc[2])
+            shrink_val = float(orig.iloc[3])
             shrink_p = shrink_val / 100 if shrink_val > 1 else shrink_val 
 
             hrs_variance = actual_available_hrs - target_workload_hrs
             req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
-            hc_variance = actual_hc_count - req_hc
+            hc_var = act_hc - req_hc
 
             with st.container():
-                st.markdown(f"""
-                    <div style='background: #1E3A8A; padding: 10px 20px; border-radius: 10px 10px 0 0; color: white;'>
-                        <span style='font-weight: 800; font-size: 1.1rem;'>🌍 {lang_name.upper()}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
+                st.markdown(f"<div style='background: #1E3A8A; padding: 10px 20px; border-radius: 10px 10px 0 0; color: white;'><span style='font-weight: 800;'>🌍 {lang_name.upper()}</span></div>", unsafe_allow_html=True)
                 m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
                 m1.metric("Target Load", f"{int(target_workload_hrs):,}h")
                 m2.metric("Supply Cap", f"{int(actual_available_hrs):,}h")
                 m3.metric("Hrs Delta", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
                 m4.metric("Shrinkage", f"{shrink_p*100:.1f}%")
-                m5.metric("Required HC", f"{int(req_hc)}")
-                m6.metric("Active HC", f"{int(actual_hc_count)}")
-                m7.metric("HC Gap", f"{int(hc_variance)}", delta=int(hc_variance))
+                m5.metric("Required HC", int(req_hc))
+                m6.metric("Active HC", int(act_hc))
+                m7.metric("HC Gap", int(hc_var), delta=int(hc_var))
                 st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
 with tab2:
     if os.path.exists("intra_last.xlsx"):
