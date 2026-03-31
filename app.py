@@ -150,7 +150,7 @@ if not st.session_state["authenticated"]:
         .stTextInput input {
             background: rgba(255, 255, 255, 0.1) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            color: Black !important;
+            color: white !important;
             border-radius: 12px !important;
         }
         </style>
@@ -164,23 +164,19 @@ if not st.session_state["authenticated"]:
     with col:
         st.markdown("""
             <div class="login-card">
-                <div style="font-size:2.6rem; color:white; font-weight:800;">WFM Data</div>
-                <div style="color:rgba(255,255,255,0.6); letter-spacing:2px;">ANALYTICS PORTAL</div>
+                <div class="brand-name">WFM Analytics</div>
+                <div class="brand-sub">Next-Gen Analytics Portal</div>
             </div>
         """, unsafe_allow_html=True)
         
-        # تأكد إن الأسطر اللي جاية دي كلها على نفس مستوى البداية (محاذية لبعض)
         user = st.text_input("Username", placeholder="Identity")
         pw = st.text_input("Password", type="password", placeholder="••••••••")
         
-        submit_button = st.button("Authenticate System", use_container_width=True)
-        
-        # منطق الدخول بالـ Enter أو الزرار
-        if submit_button or (user == "Raafat Mostafa" and pw == "Rr#01010353831"):
+        if st.button("Authenticate System", use_container_width=True):
             if user == "Raafat Mostafa" and pw == "Rr#01010353831":
                 st.session_state["authenticated"] = True
                 st.rerun()
-            elif submit_button:
+            else:
                 st.error("🔒 Security Mismatch")
     st.stop()
 
@@ -225,99 +221,73 @@ with tab1:
         
         # 1. تجميع البيانات وحساب القيم
         chart_records = []
-        for _, row in df_plot.iterrows():
-        if row["Supply Cap"] >= row["Target Load"]:
-            colors.append('#00f6ff') # لون مميز للعواميد الناجحة (Cyan المتوهج)
-            annotations.append("✅")   # علامة صح
-        else:
-        colors.append('#1E3A8A') # اللون الكحلي العادي
-        annotations.append("")    # مفيش علامة
+        for _, row in df_all.iterrows():
+            l_name = str(row.iloc[0])
+            t_load = float(row.iloc[1])
+            a_hc = float(row.iloc[2])
+            s_val = float(row.iloc[3])
+            s_p = s_val / 100 if s_val > 1 else s_val 
+            s_cap = (a_hc * base_hrs_per_person) * (1 - s_p)
+            
+            chart_records.append({
+                "Language": l_name,
+                "Target Load": t_load,
+                "Supply Cap": s_cap
+            })
 
-# 2. رسم التشارت
-fig = go.Figure()
+        # 2. الترتيب الفعلي (Sorting)
+        df_plot = pd.DataFrame(chart_records).sort_values(by="Target Load", ascending=False)
+        
+        st.markdown("### 📊 Sorted Load vs Supply Analysis")
 
-# إضافة عواميد Target Load
-fig.add_trace(go.Bar(
-    x=df_plot["Language"],
-    y=df_plot["Target Load"],
-    name="Target Load",
-    marker_color=colors, # تلوين العواميد بناءً على الحالة
-    text=annotations,    # إضافة علامة الصح
-    textposition='outside', # وضع العلامة فوق العامود
-    textfont=dict(size=18)  # تكبير علامة الصح لتكون واضحة
-))
+        # 3. استخدام Plotly لضمان ثبات الترتيب (أكثر احترافية)
+        import plotly.graph_objects as go
 
-# إضافة عواميد Supply Cap (اختياري لو عاوزها تظهر جنبها)
-fig.add_trace(go.Bar(
-    x=df_plot["Language"],
-    y=df_plot["Supply Cap"],
-    name="Supply Cap",
-    marker_color='#00D4FF',
-    opacity=0.6
-))
+        fig = go.Figure()
+        fig.add_trace(go.Bar(x=df_plot["Language"], y=df_plot["Target Load"], name='Target Load', marker_color='#1E3A8A'))
+        fig.add_trace(go.Bar(x=df_plot["Language"], y=df_plot["Supply Cap"], name='Supply Cap', marker_color='#00F6FF'))
 
-# 3. تنسيق التشارت ليكون "رايق"
-fig.update_layout(
-    title="Sorted Load vs Supply Analysis",
-    barmode='group',
-    paper_bgcolor='rgba(0,0,0,0)', # خلفية شفافة عشان تليق مع الديزاين العميق
-    plot_bgcolor='rgba(0,0,0,0)',
-    font=dict(color="white"),      # خط أبيض عشان يبان على الخلفية الغامقة
-    xaxis=dict(tickangle=-45),     # ميل أسماء اللغات لشكل أشيك
-    margin=dict(t=50, b=50, l=20, r=20),
-    showlegend=True
-)
-
-st.plotly_chart(fig, use_container_width=True)        
+        fig.update_layout(
+            barmode='group',
+            xaxis={'categoryorder':'total descending'}, # هذا السطر يضمن الترتيب التنازلي
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=0, r=0, t=20, b=0),
+            height=250,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
         st.markdown("<hr style='border: 0.5px solid #E2E8F0; margin: 40px 0;'>", unsafe_allow_html=True)
 
-        # --- داخل حلقة عرض الكروت التفصيلية ---
-for _, row_data in df_plot.iterrows():
-    lang_name = row_data["Language"]
-    target_workload_hrs = row_data["Target Load"]
-    actual_available_hrs = row_data["Supply Cap"]
-    
-    # تحديد لون الهايلايت بناءً على الشرط
-    # إذا كان الـ Supply أكبر من أو يساوي الـ Target، نستخدم اللون الأخضر، وإلا نستخدم الكحلي المعتاد
-    if actual_available_hrs >= target_workload_hrs:
-        header_color = "#065F46"  # أخضر داكن شيك (Emerald Green)
-        status_icon = "✅"
-        badge_text = "SURPLUS"
-    else:
-        header_color = "#1E3A8A"  # الكحلي المعتاد
-        status_icon = "🌍"
-        badge_text = ""
+        # 4. عرض الكروت بناءً على نفس الترتيب
+        for _, row_data in df_plot.iterrows():
+            lang_name = row_data["Language"]
+            target_workload_hrs = row_data["Target Load"]
+            actual_available_hrs = row_data["Supply Cap"]
+            
+            # جلب باقي البيانات من الجدول الأصلي للكروت
+            orig = df_all[df_all.iloc[:, 0] == lang_name].iloc[0]
+            act_hc = float(orig.iloc[2])
+            shrink_val = float(orig.iloc[3])
+            shrink_p = shrink_val / 100 if shrink_val > 1 else shrink_val 
 
-    # جلب باقي البيانات
-    orig = df_all[df_all.iloc[:, 0] == lang_name].iloc[0]
-    act_hc = float(orig.iloc[2])
-    shrink_val = float(orig.iloc[3])
-    shrink_p = shrink_val / 100 if shrink_val > 1 else shrink_val 
+            hrs_variance = actual_available_hrs - target_workload_hrs
+            req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
+            hc_var = act_hc - req_hc
 
-    hrs_variance = actual_available_hrs - target_workload_hrs
-    req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
-    hc_var = act_hc - req_hc
-
-    with st.container():
-        # استخدام اللون الديناميكي في الـ background
-        st.markdown(f"""
-            <div style='background: {header_color}; padding: 12px 20px; border-radius: 10px 10px 0 0; color: white; display: flex; justify-content: space-between; align-items: center;'>
-                <span style='font-weight: 800; font-size: 1.1rem;'>{status_icon} LANGUAGE GROUP: {lang_name.upper()}</span>
-                {f"<span style='background: rgba(255,255,255,0.2); padding: 2px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: bold;'>{badge_text}</span>" if badge_text else ""}
-            </div>
-        """, unsafe_allow_html=True)
-        
-        m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
-        m1.metric("Target Load", f"{int(target_workload_hrs):,}h")
-        m2.metric("Supply Cap", f"{int(actual_available_hrs):,}h")
-        
-        # تلوين الـ Delta تلقائياً مدمج في st.metric
-        m3.metric("Hrs Delta", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
-        m4.metric("Shrinkage", f"{shrink_p*100:.1f}%")
-        m5.metric("Required HC", int(req_hc))
-        m6.metric("Active HC", int(act_hc))
-        m7.metric("HC Gap", int(hc_var), delta=int(hc_var))
-        st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+            with st.container():
+                st.markdown(f"<div style='background: #1E3A8A; padding: 10px 20px; border-radius: 10px 10px 0 0; color: white;'><span style='font-weight: 800;'>🌍 {lang_name.upper()}</span></div>", unsafe_allow_html=True)
+                m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
+                m1.metric("Target Load", f"{int(target_workload_hrs):,}h")
+                m2.metric("Supply Cap", f"{int(actual_available_hrs):,}h")
+                m3.metric("Hrs Delta", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
+                m4.metric("Shrinkage", f"{shrink_p*100:.1f}%")
+                m5.metric("Required HC", int(req_hc))
+                m6.metric("Active HC", int(act_hc))
+                m7.metric("HC Gap", int(hc_var), delta=int(hc_var))
+                st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
 with tab2:
     if os.path.exists("intra_last.xlsx"):
         xls = pd.ExcelFile("intra_last.xlsx")
