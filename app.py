@@ -136,61 +136,83 @@ with tab3:
     if os.path.exists("sched_last.xlsx") and lang:
         st.subheader(f"🗓️ Staff Coverage Calculation: {lang}")
         try:
-            # قراءة الملف بدون تحديد أسماء أعمدة في البداية لضمان المرونة
+            # 1. قراءة البيانات والتأكد من أسماء الأعمدة
             df_s = pd.read_excel("sched_last.xlsx", sheet_name=lang)
             
-            # محاولة تحديد الأعمدة الصحيحة بناءً على الترتيب في صورتك
-            # نفترض: التاريخ (0)، الاسم (1)، البداية (2)، النهاية (3)
+            # إعادة تسمية أول 4 أعمدة لضمان مطابقة الكود مع صورتك
             df_s.columns = ['Day', 'Name', 'Start Time', 'End Time'] + list(df_s.columns[4:])
             
+            # تحويل عمود التاريخ ليصبح تاريخاً حقيقياً
             df_s['Day'] = pd.to_datetime(df_s['Day']).dt.date
             
+            # 2. إعداد جدول النتائج (الفترات الزمنية)
             intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
             target_dates = pd.date_range(start_date, end_date).date.tolist()
             df_coverage = pd.DataFrame(0, index=intervals, columns=[d.strftime('%Y-%m-%d') for d in target_dates])
 
+            # 3. معالجة كل موظف
             for _, r in df_s.iterrows():
                 if pd.isna(r['Day']): continue
                 curr_day = r['Day']
                 
-                try:
-                    # تحويل القيم إلى نصوص وتنظيفها
-                    st_raw = str(r['Start Time']).strip().upper()
-                    en_raw = str(r['End Time']).strip().upper()
-                    
-                    # تخطي أيام الإجازات
-                    if any(x in st_raw for x in ['OFF', 'NAN', '-', '']): continue
-                    
-                    # معالجة الوقت بصيغة AM/PM أو 24 ساعة
-                    start_t = pd.to_datetime(st_raw).time()
-                    end_t = pd.to_datetime(en_raw).time()
-                    
-                    s_min = start_t.hour * 60 + start_t.minute
-                    e_min = end_t.hour * 60 + end_t.minute
+                # تخطي أيام الـ OFF بناءً على صورتك
+                st_val = str(r['Start Time']).strip().upper()
+                en_val = str(r['End Time']).strip().upper()
+                if "OFF" in st_val or "OFF" in en_val or st_val == "NAN":
+                    continue
 
+                try:
+                    # تحويل وقت البداية والنهاية (بذكاء)
+                    # هذه الدالة ستحول (9:00 AM) أو (13:00) إلى أرقام دقائق
+                    def get_minutes(time_input):
+                        if isinstance(time_input, (datetime, time)):
+                            return time_input.hour * 60 + time_input.minute
+                        # إذا كان نصاً مثل "9:00 AM"
+                        ts = pd.to_datetime(str(time_input))
+                        return ts.hour * 60 + ts.minute
+
+                    s_min = get_minutes(r['Start Time'])
+                    e_min = get_minutes(r['End Time'])
+
+                    # 4. توزيع الموظف على الفترات الزمنية
                     for slot in intervals:
                         slot_dt = datetime.strptime(slot, '%H:%M').time()
                         sl_min = slot_dt.hour * 60 + slot_dt.minute
                         day_str = curr_day.strftime('%Y-%m-%d')
                         
-                        # منطق الحساب
-                        if s_min < e_min: # شيفت عادي
-                            if s_min <= sl_min < e_min:
-                                if day_str in df_coverage.columns: df_coverage.at[slot, day_str] += 1
-                        else: # شيفت ليلي
-                            if sl_min >= s_min: 
-                                if day_str in df_coverage.columns: df_coverage.at[slot, day_str] += 1
-                            elif sl_min < e_min:
-                                next_day_str = (curr_day + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-                                if next_day_str in df_coverage.columns: df_coverage.at[slot, next_day_str] += 1
-                except:
-                    continue # تخطي أي سطر فيه خطأ في تنسيق الوقت
+                        # التأكد أن اليوم يقع ضمن النطاق المختار
+                        if day_str not in df_coverage.columns:
+                            continue
 
+                        # إذا كان الشيفت في نفس اليوم (مثلاً 9 ص إلى 5 م)
+                        if s_min < e_min:
+                            if s_min <= sl_min < e_min:
+                                df_coverage.at[slot, day_str] += 1
+                        # إذا كان شيفت ليلي (عابر لمنتصف الليل)
+                        else:
+                            if sl_min >= s_min: # الساعات قبل منتصف الليل
+                                df_coverage.at[slot, day_str] += 1
+                            elif sl_min < e_min: # الساعات بعد منتصف الليل (تُضاف لليوم التالي)
+                                next_day_str = (curr_day + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+                                if next_day_str in df_coverage.columns:
+                                    df_coverage.at[slot, next_day_str] += 1
+                except Exception as e:
+                    # في حال وجود خطأ في سطر معين (مثلاً خلية فارغة) يتم تخطيه
+                    continue
+
+            # عرض النتائج
             st.session_state['df_cov'] = df_coverage
-            st.dataframe(df_coverage, use_container_width=True)
             
-        except Exception as e:
-            st.error(f"⚠️ تأكد من ترتيب الأعمدة في الإكسيل (التاريخ، الاسم، البداية، النهاية). الخطأ: {e}")
+            # ميزة إضافية: تلوين الخلايا التي تحتوي على موظفين ليسهل التأكد من العد
+            def highlight_numbers(val):
+                color = '#e1f5fe' if val > 0 else 'white'
+                return f'background-color: {color}'
+                
+            st.dataframe(df_coverage.style.applymap(highlight_numbers), use_container_width=True)
+            
+        except Exception as ex:
+            st.error(f"⚠️ خطأ عام: {ex}")
+            st.info("تأكد أن أسماء اللغات في الإكسيل مطابقة تماماً للاختيار.")
 with tab4:
     lang = st.session_state.get('active_lang')
     if 'df_intra' in st.session_state and 'df_cov' in st.session_state:
