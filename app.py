@@ -94,159 +94,23 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.markdown("""
-        <style>
-        /* إضافة الخلفية العميقة باستخدام الصورة التي رفعتها */
-        .stApp {
-            background: linear-gradient(rgba(1, 4, 17, 0.7), rgba(1, 4, 17, 0.8)), 
-                        url('https://www.storyblocks.com/video/stock/digital-cyberspace-with-particles-and-digital-data-network-connections-high-speed-connection-and-data-analysis-technology-abstract-background-concept-bkp--fkwj4sh9u25');
-            background-size: cover;
-            background-position: center;
-        }
-
-        /* شعار Kalam في الأعلى على الشمال */
-        .kalam-logo {
-            position: absolute;
-            top: 20px;
-            left: 30px;
-            font-family: 'Inter', sans-serif;
-            font-weight: 800;
-            font-size: 1.8rem;
-            color: #00F6FF; /* أزرق متوهج */
-            text-shadow: 0 0 10px rgba(0, 246, 255, 0.5);
-            z-index: 999;
-        }
-
-        .login-card {
-            background: rgba(255, 255, 255, 0.05); /* اسود عالية للعمق */
-            backdrop-filter: blur(25px) saturate(150%); /* تغبيش قوي */
-            padding: 50px 40px;
-            border-radius: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
-            text-align: center;
-            margin-bottom: -40px;
-        }
-        
-        .brand-name {
-            font-family: 'Inter', sans-serif;
-            font-weight: 800;
-            font-size: 2.6rem;
-            color: white;
-            letter-spacing: -2px;
-            margin-bottom: 5px;
-            text-shadow: 0 0 20px rgba(255,255,255,0.2);
-        }
-        
-        .brand-sub {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-            margin-bottom: 30px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        style>
-           # --- 2. نظام تسجيل الدخول (التصحيح) ---
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-
-if not st.session_state["authenticated"]:
-    # تأكد أن كل الـ HTML بداخل st.markdown وبدون فراغات غريبة في بداية السطر
-    st.markdown("""
-        <style>
-        .stApp {
-            background: linear-gradient(rgba(1, 4, 17, 0.7), rgba(1, 4, 17, 0.8)), 
-                        url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop');
-            background-size: cover;
-            background-position: center;
-        }
-
-        .kalam-logo {
-            position: absolute;
-            top: 20px;
-            left: 30px;
-            font-family: 'Inter', sans-serif;
-            font-weight: 800;
-            font-size: 1.8rem;
-            color: #00F6FF;
-            text-shadow: 0 0 10px rgba(0, 246, 255, 0.5);
-            z-index: 999;
-        }
-
-        .login-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(25px);
-            padding: 50px 40px;
-            border-radius: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: center;
-        }
-        
-        .brand-name {
-            font-size: 2.6rem;
-            color: white;
-            font-weight: 800;
-        }
-
-        /* تعديل اليوزر والباسورد للون الأسود */
-        .stTextInput input {
-            background-color: white !important;
-            color: black !important;
-            border-radius: 10px !important;
-            font-weight: 600 !important;
-        }
-        </style>
-        
-        <div class="kalam-logo">Kalam</div>
-        <div style='height: 100px;'></div>
-    """, unsafe_allow_html=True)
-    
-    _, col, _ = st.columns([1, 1.1, 1])
-    with col:
-        st.markdown('<div class="login-card"><div class="brand-name">WFM Data</div><div style="color:rgba(255,255,255,0.6);">Next-Gen Analytics</div></div>', unsafe_allow_html=True)
-        
-        user = st.text_input("Username", placeholder="Identity")
-        pw = st.text_input("Password", type="password", placeholder="••••••••")
-        
-        if st.button("Authenticate System", use_container_width=True):
-            if user == "Raafat Mostafa" and pw == "Rr#01010353831":
-                st.session_state["authenticated"] = True
-                st.rerun()
-            else:
-                st.error("🔒 Security Mismatch")
-    st.stop()
-            
-            /* جعل الـ Placeholder (النص التوضيحي) بلون رمادي داكن */
-            .stTextInput input::placeholder {
-                color: #4A4A4A !important;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        
-        <div class="kalam-logo">Kalam</div>
-        
-        <div style='height: 100px;'></div>
-    """, unsafe_allow_html=True)
-    
-    _, col, _ = st.columns([1, 1.1, 1])
+    st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
+    _, col, _ = st.columns([1, 1.2, 1])
     with col:
         st.markdown("""
-            <div class="login-card">
-                <div class="brand-name">WFM analytics</div>
-                <div class="brand-sub">Next-Gen Analytics Portal</div>
+            <div style='background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); border: 1px solid #F1F5F9;'>
+                <h2 style='text-align: center; color: #1E3A8A; font-weight: 800;'>WFM Analytics</h2>
+                <p style='text-align: center; color: #64748B; margin-bottom: 30px;'>Enter your credentials to access the portal</p>
             </div>
         """, unsafe_allow_html=True)
-        
-        user = st.text_input("Username", placeholder="Identity")
+        user = st.text_input("Username", placeholder="e.g. Admin")
         pw = st.text_input("Password", type="password", placeholder="••••••••")
-        
-        if st.button("Authenticate System", use_container_width=True):
+        if st.button("Authorize Access", use_container_width=True):
             if user == "Raafat Mostafa" and pw == "Rr#01010353831":
                 st.session_state["authenticated"] = True
                 st.rerun()
             else:
-                st.error("🔒 Security Mismatch")
+                st.error("🔒 Unauthorized Credentials")
     st.stop()
 
 # --- 3. التطبيق الرئيسي ---
