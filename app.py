@@ -219,7 +219,7 @@ with tab1:
         working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
         base_hrs_per_person = working_days * 8
         
-        # 1. تجميع البيانات وحساب القيم
+       # 1. تجميع البيانات وحساب القيم
         chart_records = []
         for _, row in df_all.iterrows():
             l_name = str(row.iloc[0])
@@ -240,20 +240,48 @@ with tab1:
         
         st.markdown("### 📊 Sorted Load vs Supply Analysis")
 
-        # 3. استخدام Plotly لضمان ثبات الترتيب (أكثر احترافية)
+        # --- الجزء المضاف: تحديد الألوان وعلامة الصح للتشارت ---
+        colors = []
+        annotations = []
+        for _, row in df_plot.iterrows():
+            if row["Supply Cap"] >= row["Target Load"]:
+                colors.append('#00F6FF') # لون متوهج للناجح
+                annotations.append("✅")
+            else:
+                colors.append('#1E3A8A') # اللون الكحلي العادي
+                annotations.append("")
+
+        # 3. استخدام Plotly لضمان ثبات الترتيب
         import plotly.graph_objects as go
 
         fig = go.Figure()
-        fig.add_trace(go.Bar(x=df_plot["Language"], y=df_plot["Target Load"], name='Target Load', marker_color='#1E3A8A'))
-        fig.add_trace(go.Bar(x=df_plot["Language"], y=df_plot["Supply Cap"], name='Supply Cap', marker_color='#00F6FF'))
+        # إضافة Target Load مع علامة الصح والألوان الديناميكية
+        fig.add_trace(go.Bar(
+            x=df_plot["Language"], 
+            y=df_plot["Target Load"], 
+            name='Target Load', 
+            marker_color=colors,
+            text=annotations,
+            textposition='outside',
+            textfont=dict(size=18)
+        ))
+        
+        fig.add_trace(go.Bar(
+            x=df_plot["Language"], 
+            y=df_plot["Supply Cap"], 
+            name='Supply Cap', 
+            marker_color='#64748B', # لون رمادي هادي للسبلاي عشان التباين
+            opacity=0.6
+        ))
 
         fig.update_layout(
             barmode='group',
-            xaxis={'categoryorder':'total descending'}, # هذا السطر يضمن الترتيب التنازلي
+            xaxis={'categoryorder':'array', 'categoryarray':df_plot["Language"]}, 
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=0, r=0, t=20, b=0),
-            height=250,
+            font=dict(color="white"),
+            margin=dict(l=0, r=0, t=30, b=0),
+            height=350, # زودت الطول شوية عشان علامة الصح تبان
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         
@@ -261,12 +289,20 @@ with tab1:
         
         st.markdown("<hr style='border: 0.5px solid #E2E8F0; margin: 40px 0;'>", unsafe_allow_html=True)
 
-        # 4. عرض الكروت بناءً على نفس الترتيب
+        # 4. عرض الكروت بناءً على نفس الترتيب مع الهايلايت الأخضر
         for _, row_data in df_plot.iterrows():
             lang_name = row_data["Language"]
             target_workload_hrs = row_data["Target Load"]
             actual_available_hrs = row_data["Supply Cap"]
             
+            # تحديد لون الهيدر بناءً على النجاح
+            if actual_available_hrs >= target_workload_hrs:
+                header_bg = "#065F46" # أخضر شيك
+                icon = "✅"
+            else:
+                header_bg = "#1E3A8A" # كحلي عادي
+                icon = "🌍"
+
             # جلب باقي البيانات من الجدول الأصلي للكروت
             orig = df_all[df_all.iloc[:, 0] == lang_name].iloc[0]
             act_hc = float(orig.iloc[2])
@@ -276,6 +312,23 @@ with tab1:
             hrs_variance = actual_available_hrs - target_workload_hrs
             req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
             hc_var = act_hc - req_hc
+
+            with st.container():
+                st.markdown(f"""
+                    <div style='background: {header_bg}; padding: 12px 20px; border-radius: 10px 10px 0 0; color: white;'>
+                        <span style='font-weight: 800;'>{icon} LANGUAGE GROUP: {lang_name.upper()}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
+                m1.metric("Target Load", f"{int(target_workload_hrs):,}h")
+                m2.metric("Supply Cap", f"{int(actual_available_hrs):,}h")
+                m3.metric("Hrs Delta", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
+                m4.metric("Shrinkage", f"{shrink_p*100:.1f}%")
+                m5.metric("Required HC", int(req_hc))
+                m6.metric("Active HC", int(act_hc))
+                m7.metric("HC Gap", int(hc_var), delta=int(hc_var))
+                st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
 
             with st.container():
                 st.markdown(f"<div style='background: #1E3A8A; padding: 10px 20px; border-radius: 10px 10px 0 0; color: white;'><span style='font-weight: 800;'>🌍 {lang_name.upper()}</span></div>", unsafe_allow_html=True)
