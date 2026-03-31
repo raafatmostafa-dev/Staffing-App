@@ -72,7 +72,7 @@ st.markdown("""
     .main-header {
         font-size: 2.2rem;
         font-weight: 800;
-        color: #FFFFFF;
+        color: #0F172A;
         letter-spacing: -1px;
         margin-bottom: 30px;
     }
@@ -150,7 +150,7 @@ if not st.session_state["authenticated"]:
         .stTextInput input {
             background: rgba(255, 255, 255, 0.1) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            color: white !important;
+            color: Black !important;
             border-radius: 12px !important;
         }
         </style>
