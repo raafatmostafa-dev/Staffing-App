@@ -16,7 +16,7 @@ st.markdown("""
     
     html, body, [class*="css"]  {
         font-family: 'Inter', sans-serif;
-        background-color: #FBFBFE;
+        background-color: #010411;
     }
 
     /* إخفاء العناصر غير الضرورية */
