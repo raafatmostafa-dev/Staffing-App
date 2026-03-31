@@ -136,7 +136,13 @@ with tab3:
     if os.path.exists("sched_last.xlsx") and lang:
         st.subheader(f"🗓️ Staff Coverage Calculation: {lang}")
         try:
+            # قراءة الملف بدون تحديد أسماء أعمدة في البداية لضمان المرونة
             df_s = pd.read_excel("sched_last.xlsx", sheet_name=lang)
+            
+            # محاولة تحديد الأعمدة الصحيحة بناءً على الترتيب في صورتك
+            # نفترض: التاريخ (0)، الاسم (1)، البداية (2)، النهاية (3)
+            df_s.columns = ['Day', 'Name', 'Start Time', 'End Time'] + list(df_s.columns[4:])
+            
             df_s['Day'] = pd.to_datetime(df_s['Day']).dt.date
             
             intervals = pd.date_range("00:00", "23:30", freq="30min").strftime('%H:%M').tolist()
@@ -148,38 +154,43 @@ with tab3:
                 curr_day = r['Day']
                 
                 try:
-                    st_v = str(r['Start Time']).strip().upper()
-                    en_v = str(r['End Time']).strip().upper()
-                    if st_v in ['OFF', 'NAN', '-', ''] or en_v in ['OFF', 'NAN', '-', '']: continue
+                    # تحويل القيم إلى نصوص وتنظيفها
+                    st_raw = str(r['Start Time']).strip().upper()
+                    en_raw = str(r['End Time']).strip().upper()
                     
-                    start_t = pd.to_datetime(st_v).time()
-                    end_t = pd.to_datetime(en_v).time()
+                    # تخطي أيام الإجازات
+                    if any(x in st_raw for x in ['OFF', 'NAN', '-', '']): continue
                     
-                    # تحويل الوقت لدقائق للمقارنة الدقيقة
+                    # معالجة الوقت بصيغة AM/PM أو 24 ساعة
+                    start_t = pd.to_datetime(st_raw).time()
+                    end_t = pd.to_datetime(en_raw).time()
+                    
                     s_min = start_t.hour * 60 + start_t.minute
                     e_min = end_t.hour * 60 + end_t.minute
 
                     for slot in intervals:
-                        slot_t = datetime.strptime(slot, '%H:%M').time()
-                        sl_min = slot_t.hour * 60 + slot_t.minute
+                        slot_dt = datetime.strptime(slot, '%H:%M').time()
+                        sl_min = slot_dt.hour * 60 + slot_dt.minute
                         day_str = curr_day.strftime('%Y-%m-%d')
                         
-                        if s_min < e_min: # شيفت نهاري
+                        # منطق الحساب
+                        if s_min < e_min: # شيفت عادي
                             if s_min <= sl_min < e_min:
                                 if day_str in df_coverage.columns: df_coverage.at[slot, day_str] += 1
-                        else: # شيفت ليلي (Night Shift)
-                            if sl_min >= s_min: # الجزء الأول من الشيفت في نفس اليوم
+                        else: # شيفت ليلي
+                            if sl_min >= s_min: 
                                 if day_str in df_coverage.columns: df_coverage.at[slot, day_str] += 1
-                            elif sl_min < e_min: # الجزء الثاني في اليوم التالي
+                            elif sl_min < e_min:
                                 next_day_str = (curr_day + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
                                 if next_day_str in df_coverage.columns: df_coverage.at[slot, next_day_str] += 1
-                except: continue
+                except:
+                    continue # تخطي أي سطر فيه خطأ في تنسيق الوقت
 
             st.session_state['df_cov'] = df_coverage
             st.dataframe(df_coverage, use_container_width=True)
+            
         except Exception as e:
-            st.error(f"⚠️ خطأ في معالجة الجداول: {e}")
-
+            st.error(f"⚠️ تأكد من ترتيب الأعمدة في الإكسيل (التاريخ، الاسم، البداية، النهاية). الخطأ: {e}")
 with tab4:
     lang = st.session_state.get('active_lang')
     if 'df_intra' in st.session_state and 'df_cov' in st.session_state:
