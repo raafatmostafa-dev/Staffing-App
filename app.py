@@ -317,22 +317,7 @@ with tab1:
             req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
             hc_var = act_hc - req_hc
 
-            with st.container():
-                st.markdown(f"""
-                    <div style='background: {header_bg}; padding: 12px 20px; border-radius: 10px 10px 0 0; color: white;'>
-                        <span style='font-weight: 800;'>{icon} LANGUAGE GROUP: {lang_name.upper()}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
-                m1.metric("Target Load", f"{int(target_workload_hrs):,}h")
-                m2.metric("Supply Cap", f"{int(actual_available_hrs):,}h")
-                m3.metric("Hrs Delta", f"{int(hrs_variance):,}h", delta=int(hrs_variance))
-                m4.metric("Shrinkage", f"{shrink_p*100:.1f}%")
-                m5.metric("Required HC", int(req_hc))
-                m6.metric("Active HC", int(act_hc))
-                m7.metric("HC Gap", int(hc_var), delta=int(hc_var))
-                st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+          
 
             with st.container():
                 st.markdown(f"<div style='background: #1E3A8A; padding: 10px 20px; border-radius: 10px 10px 0 0; color: white;'><span style='font-weight: 800;'>🌍 {lang_name.upper()}</span></div>", unsafe_allow_html=True)
