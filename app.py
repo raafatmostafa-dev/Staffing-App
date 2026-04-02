@@ -94,9 +94,10 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
+    # 1. وضع الـ CSS والـ HTML مع بعض في بلوك واحد سليم
     st.markdown("""
         <style>
-        /* إضافة الخلفية العميقة باستخدام الصورة التي رفعتها */
+        /* الخلفية */
         .stApp {
             background: linear-gradient(rgba(1, 4, 17, 0.7), rgba(1, 4, 17, 0.8)), 
                         url('https://www.storyblocks.com/video/stock/digital-cyberspace-with-particles-and-digital-data-network-connections-high-speed-connection-and-data-analysis-technology-abstract-background-concept-bkp--fkwj4sh9u25');
@@ -104,7 +105,7 @@ if not st.session_state["authenticated"]:
             background-position: center;
         }
 
-        /* شعار Kalam في الأعلى على الشمال */
+        /* لوجو Kalam */
         .kalam-logo {
             position: absolute;
             top: 20px;
@@ -112,81 +113,62 @@ if not st.session_state["authenticated"]:
             font-family: 'Inter', sans-serif;
             font-weight: 800;
             font-size: 1.8rem;
-            color: #00F6FF; /* أزرق متوهج */
+            color: #00F6FF;
             text-shadow: 0 0 10px rgba(0, 246, 255, 0.5);
             z-index: 999;
         }
 
+        /* كارت اللوجن */
         .login-card {
-            background: rgba(255, 255, 255, 0.05); /* شفافية عالية للعمق */
-            backdrop-filter: blur(25px) saturate(150%); /* تغبيش قوي */
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(25px) saturate(150%);
             padding: 50px 40px;
             border-radius: 30px;
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 40px 100px rgba(0,0,0,0.5);
             text-align: center;
-            margin-bottom: -40px;
-        }
-        
-        .brand-name {
-            font-family: 'Inter', sans-serif;
-            font-weight: 800;
-            font-size: 2.6rem;
-            color: white;
-            letter-spacing: -2px;
-            margin-bottom: 5px;
-            text-shadow: 0 0 20px rgba(255,255,255,0.2);
-        }
-        
-        .brand-sub {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-            margin-bottom: 30px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
         }
 
-/* تحسين شكل حقول الإدخال لتكون الكتابة باللون الأسود */
-.stTextInput input {
-    background: rgba(255, 255, 255, 0.9) !important; /* خلفية بيضاء شبه صلبة عشان الأسود يبان */
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    color: #000000 !important; /* اللون الأسود للكتابة */
-    border-radius: 12px !important;
-    font-weight: 600 !important;
-}
-
-/* عشان نضمن إن الـ Placeholder (الكلام المؤقت) يفضل لونه رمادي مش أسود */
-.stTextInput input::placeholder {
-    color: rgba(0, 0, 0, 0.4) !important;
-}
+        /* حقول الإدخال - لون أسود صريح */
+        .stTextInput input {
+            background: rgba(255, 255, 255, 0.95) !important;
+            color: #000000 !important;
+            border-radius: 12px !important;
+            font-weight: 600 !important;
+        }
+        
+        /* عناوين الحقول (Username/Password) */
+        .stTextInput label {
+            color: rgba(255,255,255,0.8) !important;
+        }
         </style>
         
         <div class="kalam-logo">Kalam</div>
-        
-        <div style='height: 100px;'></div>
+        <div style='height: 80px;'></div>
     """, unsafe_allow_html=True)
     
-    _, col, _ = st.columns([1, 1.1, 1])
+    # 2. بناء الكارت
+    _, col, _ = st.columns([1, 1.2, 1])
     with col:
         st.markdown("""
             <div class="login-card">
-                <div style="font-size:2.6rem; color:white; font-weight:800;">WFM ANALYTICS</div>
-                <div style="color:rgba(255,255,255,0.6); letter-spacing:2px;">ANALYTICS PORTAL</div>
+                <div style="font-size:2.6rem; color:white; font-weight:800; letter-spacing:-1px;">WFM ANALYTICS</div>
+                <div style="color:rgba(255,255,255,0.6); letter-spacing:2px; font-size:0.8rem;">ANALYTICS PORTAL</div>
             </div>
+            <div style="height: 20px;"></div>
         """, unsafe_allow_html=True)
         
-        # تأكد إن الأسطر اللي جاية دي كلها على نفس مستوى البداية (محاذية لبعض)
         user = st.text_input("Username", placeholder="Identity")
         pw = st.text_input("Password", type="password", placeholder="••••••••")
         
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         submit_button = st.button("Authenticate System", use_container_width=True)
         
-        # منطق الدخول بالـ Enter أو الزرار
-        if submit_button or (user == "Raafat Mostafa" and pw == "Rr#01010353831"):
+        if submit_button:
             if user == "Raafat Mostafa" and pw == "Rr#01010353831":
                 st.session_state["authenticated"] = True
                 st.rerun()
-            elif submit_button:
+            else:
                 st.error("🔒 Security Mismatch")
     st.stop()
 
