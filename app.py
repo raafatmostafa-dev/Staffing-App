@@ -146,13 +146,19 @@ if not st.session_state["authenticated"]:
             letter-spacing: 2px;
         }
 
-        /* تحسين شكل حقول الإدخال لتناسب العمق */
-        .stTextInput input {
-            background: rgba(255, 255, 255, 0.1) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            color: white !important;
-            border-radius: 12px !important;
-        }
+/* تحسين شكل حقول الإدخال لتكون الكتابة باللون الأسود */
+.stTextInput input {
+    background: rgba(255, 255, 255, 0.9) !important; /* خلفية بيضاء شبه صلبة عشان الأسود يبان */
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #000000 !important; /* اللون الأسود للكتابة */
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+}
+
+/* عشان نضمن إن الـ Placeholder (الكلام المؤقت) يفضل لونه رمادي مش أسود */
+.stTextInput input::placeholder {
+    color: rgba(0, 0, 0, 0.4) !important;
+}
         </style>
         
         <div class="kalam-logo">Kalam</div>
