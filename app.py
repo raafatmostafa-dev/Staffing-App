@@ -147,7 +147,7 @@ if not st.session_state["authenticated"]:
         <div style='height: 80px;'></div>
     """, unsafe_allow_html=True)
     
-    # 2. بناء الكارت
+  # 2. بناء الكارت
     _, col, _ = st.columns([1, 1.2, 1])
     with col:
         st.markdown("""
@@ -158,18 +158,22 @@ if not st.session_state["authenticated"]:
             <div style="height: 20px;"></div>
         """, unsafe_allow_html=True)
         
-        user = st.text_input("Username", placeholder="Identity")
-        pw = st.text_input("Password", type="password", placeholder="••••••••")
+        # إضافة مفاتيح (keys) للحقول لضمان التقاط البيانات فوراً
+        user = st.text_input("Username", placeholder="Identity", key="user_input")
+        pw = st.text_input("Password", type="password", placeholder="••••••••", key="pw_input")
         
         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         submit_button = st.button("Authenticate System", use_container_width=True)
         
-        if submit_button:
-            if user == "Raafat Mostafa" and pw == "Rr#01010353831":
-                st.session_state["authenticated"] = True
-                st.rerun()
-            else:
-                st.error("🔒 Security Mismatch")
+        # المنطق الجديد: التحقق بيحصل لو داس على الزرار أو لو الحقول مش فاضية وداس Enter
+        if submit_button or (user and pw):
+            # بنحط شرط إضافي عشان ميعملش Error أول ما الصفحة تفتح والحقول لسه فاضية
+            if submit_button or (len(pw) > 0 and user == "Raafat Mostafa"):
+                if user == "Raafat Mostafa" and pw == "Rr#01010353831":
+                    st.session_state["authenticated"] = True
+                    st.rerun()
+                elif submit_button: # بنظهر الخطأ فقط لو داس الزرار فعلياً والبيانات غلط
+                    st.error("🔒 Security Mismatch")
     st.stop()
 
 # --- 3. التطبيق الرئيسي ---
