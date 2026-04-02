@@ -204,17 +204,46 @@ tab1, tab2, tab3, tab4 = st.tabs(["📊 Executive Summary", "🎯 Requirements",
 with tab1:
     with st.expander("🛠️ Control Panel & Data Ingestion", expanded=False):
         c1, c2, c3 = st.columns(3)
+        
+        # ميزة حذف الملفات يدوياً
+        if st.sidebar.button("🗑️ Clear All Uploaded Data"):
+            for f in ["data_last.xlsx", "intra_last.xlsx", "sched_last.xlsx"]:
+                if os.path.exists(f): os.remove(f)
+            st.rerun()
+
         with c1:
             d_range = st.date_input("Analysis Window", [date(2026, 4, 1), date(2026, 4, 30)])
+            
         with c2:
-            up_main = st.file_uploader("Upload Core Data", type=["xlsx"])
-            if up_main: save_file(up_main, "data_last.xlsx")
-        with c3:
-            up_intra = st.file_uploader("Upload Intrady Requirements", type=["xlsx"])
-            if up_intra: save_file(up_intra, "intra_last.xlsx")
-            up_sched = st.file_uploader("Upload Master Schedules", type=["xlsx"])
-            if up_sched: save_file(up_sched, "sched_last.xlsx")
+            # التحقق من وجود الملف مسبقاً لعرض حالة الحفظ
+            main_exists = os.path.exists("data_last.xlsx")
+            up_main = st.file_uploader(
+                f"Core Data {'✅ (Saved)' if main_exists else ''}", 
+                type=["xlsx"]
+            )
+            if up_main: 
+                save_file(up_main, "data_last.xlsx")
+                st.success("Core Data Updated!")
+                st.rerun() # لإعادة تحميل البيانات فوراً
 
+        with c3:
+            intra_exists = os.path.exists("intra_last.xlsx")
+            up_intra = st.file_uploader(
+                f"Intrady Requirements {'✅ (Saved)' if intra_exists else ''}", 
+                type=["xlsx"]
+            )
+            if up_intra: 
+                save_file(up_intra, "intra_last.xlsx")
+                st.rerun()
+
+            sched_exists = os.path.exists("sched_last.xlsx")
+            up_sched = st.file_uploader(
+                f"Master Schedules {'✅ (Saved)' if sched_exists else ''}", 
+                type=["xlsx"]
+            )
+            if up_sched: 
+                save_file(up_sched, "sched_last.xlsx")
+                st.rerun()
     start_date = d_range[0]
     end_date = d_range[1] if len(d_range) > 1 else d_range[0]
 
