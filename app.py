@@ -194,87 +194,70 @@ def format_time_index(t):
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Executive Summary", "🎯 Requirements", "🗓️ Schedule View", "⚖️ Delta Analysis"])
 
 with tab1:
-    with st.expander("🛠️ Control Panel & Data Ingestion", expanded=False):
-        c1, c2, c3 = st.columns(3)
-        
-        # ميزة حذف الملفات يدوياً
-        if st.sidebar.button("🗑️ Clear All Uploaded Data"):
-            for f in ["data_last.xlsx", "intra_last.xlsx", "sched_last.xlsx"]:
-                if os.path.exists(f): os.remove(f)
-            st.rerun()
-
-        with c1:
-            d_range = st.date_input("Analysis Window", [date(2026, 4, 1), date(2026, 4, 30)])
-            
-        with c2:
-            # التحقق من وجود الملف مسبقاً لعرض حالة الحفظ
-            main_exists = os.path.exists("data_last.xlsx")
-            up_main = st.file_uploader(
-                f"Core Data {'✅ (Saved)' if main_exists else ''}", 
-                type=["xlsx"]
-            )
-            if up_main: 
-                save_file(up_main, "data_last.xlsx")
-                st.success("Core Data Updated!")
-                st.rerun() # لإعادة تحميل البيانات فوراً
-
-        with c3:
-            intra_exists = os.path.exists("intra_last.xlsx")
-            up_intra = st.file_uploader(
-                f"Intrady Requirements {'✅ (Saved)' if intra_exists else ''}", 
-                type=["xlsx"]
-            )
-            if up_intra: 
-                save_file(up_intra, "intra_last.xlsx")
-                st.rerun()
-
-            sched_exists = os.path.exists("sched_last.xlsx")
-            up_sched = st.file_uploader(
-                f"Master Schedules {'✅ (Saved)' if sched_exists else ''}", 
-                type=["xlsx"]
-            )
-            if up_sched: 
-                save_file(up_sched, "sched_last.xlsx")
-                st.rerun()
-    start_date = d_range[0]
-    end_date = d_range[1] if len(d_range) > 1 else d_range[0]
-
-if os.path.exists("data_last.xlsx"):
-        # إنشاء قائمة بأسماء الشهور
+    # 1. التحقق من وجود الملف أولاً لجلب أسماء الشهور
+    if os.path.exists("data_last.xlsx"):
         excel_file = pd.ExcelFile("data_last.xlsx")
         available_months = excel_file.sheet_names
         
-        # 2. الوصول لـ expander والـ columns
+        # 2. لوحة تحكم واحدة موحدة (One Single Expander)
         with st.expander("🛠️ Control Panel & Data Ingestion", expanded=False):
             c1, c2, c3 = st.columns(3)
             
             with c1:
+                # فلتر الشهر
                 selected_month = st.selectbox(
                     "📅 Select Month Tab", 
                     available_months, 
                     index=available_months.index("Apr") if "Apr" in available_months else 0,
-                    key="month_selector_tab1"
+                    key="main_month_selector"
                 )
-                
+                # فلتر التاريخ
                 d_range = st.date_input(
                     "Analysis Window", 
                     [date(2026, 4, 1), date(2026, 4, 30)],
-                    key="date_input_tab1"
+                    key="main_date_range"
                 )
+                
+            with c2:
+                # رفع ملف البيانات الأساسي (Core Data)
+                main_exists = os.path.exists("data_last.xlsx")
+                up_main = st.file_uploader(
+                    f"Core Data {'✅ (Saved)' if main_exists else ''}", 
+                    type=["xlsx"],
+                    key="core_uploader"
+                )
+                if up_main: 
+                    save_file(up_main, "data_last.xlsx")
+                    st.success("Core Data Updated!")
+                    st.rerun()
 
-        # 3. استخراج التواريخ وقراءة البيانات (بنفس مستوى الإزاحة داخل الـ IF)
+            with c3:
+                # رفع ملفات الـ Intrady و Schedules
+                up_intra = st.file_uploader("Intrady Requirements", type=["xlsx"], key="intra_uploader")
+                if up_intra: 
+                    save_file(up_intra, "intra_last.xlsx")
+                    st.rerun()
+                
+                up_sched = st.file_uploader("Master Schedules", type=["xlsx"], key="sched_uploader")
+                if up_sched: 
+                    save_file(up_sched, "sched_last.xlsx")
+                    st.rerun()
+
+        # 3. استخراج التواريخ وقراءة البيانات بناءً على الفلتر
         start_date = d_range[0]
         end_date = d_range[1] if len(d_range) > 1 else d_range[0]
         
+        # قراءة التابة المختارة من الفلتر
         df_all = pd.read_excel("data_last.xlsx", sheet_name=selected_month)
         
+        # حساب أيام العمل
         working_days = np.busday_count(
             np.datetime64(start_date), 
             np.datetime64(end_date) + np.timedelta64(1, 'D')
         )
         base_hrs_per_person = working_days * 8
         
-       # 1. تجميع البيانات وحساب القيم
+        # --- معالجة البيانات وحساب القيم ---
         chart_records = []
         for _, row in df_all.iterrows():
             l_name = str(row.iloc[0])
@@ -290,27 +273,25 @@ if os.path.exists("data_last.xlsx"):
                 "Supply Cap": s_cap
             })
 
-        # 2. الترتيب الفعلي (Sorting)
         df_plot = pd.DataFrame(chart_records).sort_values(by="Target Load", ascending=False)
         
         st.markdown("### 📊 Sorted Load vs Supply Analysis")
 
-        # --- الجزء المضاف: تحديد الألوان وعلامة الصح للتشارت ---
+        # --- تحديد الألوان وعلامة الصح للتشارت ---
         colors = []
         annotations = []
         for _, row in df_plot.iterrows():
             if row["Supply Cap"] >= row["Target Load"]:
-                colors.append('#00F6FF') # لون متوهج للناجح
+                colors.append('#00F6FF') 
                 annotations.append("✅")
             else:
-                colors.append('#1E3A8A') # اللون الكحلي العادي
+                colors.append('#1E3A8A') 
                 annotations.append("")
 
-        # 3. استخدام Plotly لضمان ثبات الترتيب
+        # --- الرسم البياني باستخدام Plotly ---
         import plotly.graph_objects as go
-
         fig = go.Figure()
-        # إضافة Target Load مع علامة الصح والألوان الديناميكية
+        
         fig.add_trace(go.Bar(
             x=df_plot["Language"], 
             y=df_plot["Target Load"], 
@@ -325,7 +306,7 @@ if os.path.exists("data_last.xlsx"):
             x=df_plot["Language"], 
             y=df_plot["Supply Cap"], 
             name='Supply Cap', 
-            marker_color='#64748B', # لون رمادي هادي للسبلاي عشان التباين
+            marker_color='#64748B', 
             opacity=0.6
         ))
 
@@ -336,29 +317,20 @@ if os.path.exists("data_last.xlsx"):
             plot_bgcolor='rgba(0,0,0,0)',
             font=dict(color="white"),
             margin=dict(l=0, r=0, t=30, b=0),
-            height=350, # زودت الطول شوية عشان علامة الصح تبان
+            height=350,
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         
         st.plotly_chart(fig, use_container_width=True)
-        
         st.markdown("<hr style='border: 0.5px solid #E2E8F0; margin: 40px 0;'>", unsafe_allow_html=True)
 
-        # 4. عرض الكروت بناءً على نفس الترتيب مع الهايلايت الأخضر
+        # --- عرض الكروت الملونة ---
         for _, row_data in df_plot.iterrows():
             lang_name = row_data["Language"]
             target_workload_hrs = row_data["Target Load"]
             actual_available_hrs = row_data["Supply Cap"]
             
-            # تحديد لون الهيدر بناءً على النجاح
-            if actual_available_hrs >= target_workload_hrs:
-                header_bg = "#065F46" # أخضر شيك
-                icon = "✅"
-            else:
-                header_bg = "#1E3A8A" # كحلي عادي
-                icon = "🌍"
-
-            # جلب باقي البيانات من الجدول الأصلي للكروت
+            # جلب باقي البيانات من الجدول الأصلي
             orig = df_all[df_all.iloc[:, 0] == lang_name].iloc[0]
             act_hc = float(orig.iloc[2])
             shrink_val = float(orig.iloc[3])
@@ -368,10 +340,12 @@ if os.path.exists("data_last.xlsx"):
             req_hc = np.ceil(target_workload_hrs / (base_hrs_per_person * (1 - shrink_p))) if base_hrs_per_person > 0 else 0
             hc_var = act_hc - req_hc
 
-          
+            # تحديد اللون بناءً على الكفاءة
+            success = actual_available_hrs >= target_workload_hrs
+            header_color = "#065F46" if success else "#1E3A8A"
 
             with st.container():
-                st.markdown(f"<div style='background: #1E3A8A; padding: 10px 20px; border-radius: 10px 10px 0 0; color: white;'><span style='font-weight: 800;'>🌍 {lang_name.upper()}</span></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='background: {header_color}; padding: 10px 20px; border-radius: 10px 10px 0 0; color: white;'><span style='font-weight: 800;'>{'✅' if success else '🌍'} {lang_name.upper()}</span></div>", unsafe_allow_html=True)
                 m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
                 m1.metric("Target Load", f"{int(target_workload_hrs):,}h")
                 m2.metric("Supply Cap", f"{int(actual_available_hrs):,}h")
@@ -381,6 +355,8 @@ if os.path.exists("data_last.xlsx"):
                 m6.metric("Active HC", int(act_hc))
                 m7.metric("HC Gap", int(hc_var), delta=int(hc_var))
                 st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+    else:
+        st.info("Please upload the Core Data file to start analysis.")
 with tab2:
     if os.path.exists("intra_last.xlsx"):
         xls = pd.ExcelFile("intra_last.xlsx")
