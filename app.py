@@ -239,25 +239,41 @@ with tab1:
     start_date = d_range[0]
     end_date = d_range[1] if len(d_range) > 1 else d_range[0]
 
-    if os.path.exists("data_last.xlsx"):
-        # 1. إنشاء قائمة بأسماء الشهور بناءً على أسماء التابات في ملف الإكسيل
-        excel_file = pd.ExcelFile("data_last.xlsx")
-        available_months = excel_file.sheet_names # سيسحب [Jan, Feb, Mar, Apr, ...]
+ if os.path.exists("data_last.xlsx"):
+    # 1. إنشاء قائمة بأسماء الشهور بناءً على أسماء التابات في ملف الإكسيل
+    excel_file = pd.ExcelFile("data_last.xlsx")
+    available_months = excel_file.sheet_names # سيسحب [Jan, Feb, Mar, Apr, ...]
+    
+    # 2. إضافة الفلتر في واجهة المستخدم (تأكد أن c1 معرفة مسبقاً من st.columns)
+    with c1:
+        # إضافة key فريد لمنع خطأ DuplicateElementId
+        selected_month = st.selectbox(
+            "📅 Select Month Tab", 
+            available_months, 
+            index=available_months.index("Apr") if "Apr" in available_months else 0,
+            key="month_selector_tab1"
+        )
         
-        # 2. إضافة الفلتر في واجهة المستخدم (قبل العمليات الحسابية)
-        with c1:
-            # فلتر اختيار الشهر
-            selected_month = st.selectbox("📅 Select Month Tab", available_months, index=available_months.index("Apr") if "Apr" in available_months else 0)
-            
-            # فلتر نافذة التواريخ (اختياري، لكن سنربطه بالأيام الفعلية للشهر المختار)
-            d_range = st.date_input("Analysis Window", [date(2026, 4, 1), date(2026, 4, 30)])
+        # إضافة key فريد لفلتر التاريخ
+        d_range = st.date_input(
+            "Analysis Window", 
+            [date(2026, 4, 1), date(2026, 4, 30)],
+            key="date_input_tab1"
+        )
 
-        # 3. قراءة البيانات من الشيت المختار حصراً
-        df_all = pd.read_excel("data_last.xlsx", sheet_name=selected_month)
-        
-        # حساب أيام العمل بناءً على التواريخ المختارة
-        working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
-        base_hrs_per_person = working_days * 8
+    # تحديد التواريخ من النطاق المختار
+    start_date = d_range[0]
+    end_date = d_range[1] if len(d_range) > 1 else d_range[0]
+
+    # 3. قراءة البيانات من الشيت المختار حصراً
+    df_all = pd.read_excel("data_last.xlsx", sheet_name=selected_month)
+    
+    # حساب أيام العمل بناءً على التواريخ المختارة
+    working_days = np.busday_count(
+        np.datetime64(start_date), 
+        np.datetime64(end_date) + np.timedelta64(1, 'D')
+    )
+    base_hrs_per_person = working_days * 8
         
        # 1. تجميع البيانات وحساب القيم
         chart_records = []
