@@ -240,7 +240,22 @@ with tab1:
     end_date = d_range[1] if len(d_range) > 1 else d_range[0]
 
     if os.path.exists("data_last.xlsx"):
-        df_all = pd.read_excel("data_last.xlsx", sheet_name=0)
+        # 1. إنشاء قائمة بأسماء الشهور بناءً على أسماء التابات في ملف الإكسيل
+        excel_file = pd.ExcelFile("data_last.xlsx")
+        available_months = excel_file.sheet_names # سيسحب [Jan, Feb, Mar, Apr, ...]
+        
+        # 2. إضافة الفلتر في واجهة المستخدم (قبل العمليات الحسابية)
+        with c1:
+            # فلتر اختيار الشهر
+            selected_month = st.selectbox("📅 Select Month Tab", available_months, index=available_months.index("Apr") if "Apr" in available_months else 0)
+            
+            # فلتر نافذة التواريخ (اختياري، لكن سنربطه بالأيام الفعلية للشهر المختار)
+            d_range = st.date_input("Analysis Window", [date(2026, 4, 1), date(2026, 4, 30)])
+
+        # 3. قراءة البيانات من الشيت المختار حصراً
+        df_all = pd.read_excel("data_last.xlsx", sheet_name=selected_month)
+        
+        # حساب أيام العمل بناءً على التواريخ المختارة
         working_days = np.busday_count(np.datetime64(start_date), np.datetime64(end_date) + np.timedelta64(1, 'D'))
         base_hrs_per_person = working_days * 8
         
